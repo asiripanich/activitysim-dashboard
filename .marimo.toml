@@ -1,0 +1,44 @@
+[snippets]
+include_default_snippets = true
+custom_paths = []
+
+[completion]
+copilot = false
+activate_on_typing = true
+
+[ai]
+rules = ""
+
+[server]
+follow_symlink = false
+browser = "default"
+
+[keymap]
+preset = "default"
+[keymap.overrides]
+
+[display]
+theme = "light"
+code_editor_font_size = 14
+default_width = "medium"
+dataframes = "rich"
+cell_output = "above"
+
+[package_management]
+manager = "uv"
+
+[save]
+autosave = "after_delay"
+autosave_delay = 1000
+format_on_save = true
+
+[experimental]
+
+[formatting]
+line_length = 79
+
+[runtime]
+on_cell_change = "autorun"
+auto_reload = "off"
+auto_instantiate = true
+watcher_on_save = "lazy"
