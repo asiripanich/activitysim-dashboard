@@ -1,18 +1,12 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "folium==0.19.4",
-#     "geopandas==1.0.1",
 #     "great-tables==0.16.1",
-#     "leafmap==0.42.9",
-#     "mapclassify==2.8.1",
 #     "marimo",
-#     "matplotlib==3.10.0",
-#     "openmatrix==0.3.5.0",
+#     "pandas==2.2.3",
 #     "plotly[express]==6.0.0",
 #     "polars==1.22.0",
 #     "pyarrow==19.0.0",
-#     "pyyaml==6.0.2",
 # ]
 # ///
 
@@ -30,31 +24,8 @@ def import_packages():
     import polars.selectors as cs
     from typing import Any, Dict, Optional
     import plotly.express as px
-    import geopandas as gpd
     from great_tables import GT, style, loc, md
-    import yaml
-
-    pl.enable_string_cache()
-    # import openmatrix
-
-    # import leafmap.foliumap as leafmap
-    # import folium
-    return (
-        Any,
-        Dict,
-        GT,
-        Optional,
-        cs,
-        gpd,
-        loc,
-        md,
-        mo,
-        os,
-        pl,
-        px,
-        style,
-        yaml,
-    )
+    return Any, Dict, GT, Optional, cs, loc, md, mo, os, pl, px, style
 
 
 @app.cell(hide_code=True)
@@ -134,13 +105,6 @@ def banner_html_code(mo):
         """
     )
     return
-
-
-@app.cell
-def _(params_dir, yaml):
-    with open(rf"{params_dir.value}", "r") as file:
-        PARAMS = yaml.safe_load(file)
-    return PARAMS, file
 
 
 @app.cell(hide_code=True)
@@ -223,16 +187,6 @@ def _(summary_cards):
 
 @app.cell(hide_code=True)
 def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
-    # def get_model_outcome(key, default_value=None):
-    #     """
-    #     Retrieve the model outcome for the given key from PARAMS.
-    #     If no outcome is found, return the default value (defaults to key).
-    #     """
-    #     default_value = key if default_value is None else default_value
-    #     value = PARAMS.get("models", {}).get(key)
-    #     return value if value is not None else default_value
-
-
     def _get_direction(proj_value: float, base_value: float) -> Optional[str]:
         """
         Compare the projected and base values and return a direction string.
@@ -313,15 +267,21 @@ def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
             "🧍🔁 person_tours": total_tours / total_persons,
             "☕️ remote_workers": outputs["persons"].pipe(
                 _total_binary_variable,
-                MODELS["household_person"].get("work_from_home").get("result_field"),
+                MODELS["household_person"]
+                .get("work_from_home")
+                .get("result_field"),
             ),
             "💼🚗 free_parking_at_work": outputs["persons"].pipe(
                 _total_binary_variable,
-                MODELS["household_person"].get("free_parking_at_work").get("result_field"),
+                MODELS["household_person"]
+                .get("free_parking_at_work")
+                .get("result_field"),
             ),
             "0️⃣🚗 zero-car_households": outputs["households"].pipe(
                 _total_categorical_variable,
-                MODELS["household_person"].get("auto_ownership").get("result_field"),
+                MODELS["household_person"]
+                .get("auto_ownership")
+                .get("result_field"),
                 0,
             ),
         }
@@ -480,14 +440,17 @@ def models_settings(pl):
             "school_location": {
                 "table": "persons",
                 "result_field": "school_zone_id",
+                "filter_expr": pl.col("school_zone_id") > 0,
             },
             "work_location": {
                 "table": "persons",
                 "result_field": "workplace_zone_id",
+                "filter_expr": pl.col("workplace_zone_id") > 0,
             },
             "business_location": {
                 "table": "persons",
                 "result_field": "business_zone_id",
+                "filter_expr": pl.col("business_zone_id") > 0,
             },
             "telecommute_frequency": {
                 "table": "persons",
@@ -867,523 +830,16 @@ def generate_model_diagnostic(
 
         # Generate visuals: create tabs for Share and Count figures and format the table
         tabs = mo.ui.tabs(
-            {"Share": generate_figure("share"), "Count": generate_figure("len")}
+            {
+                "Share": generate_figure("share"),
+                "Count": generate_figure("len"),
+                "Table": generate_formatted_table(agg_df_pivoted),
+            }
         )
-        formatted_table = generate_formatted_table(agg_df_pivoted)
 
         # Combine visuals and table in a vertical stack layout
-        return mo.vstack([tabs, formatted_table])
+        return mo.vstack([tabs])
     return (generate_model_diagnostic,)
-
-
-@app.cell
-def ui_population(mo):
-    mo.hstack(
-        [mo.md(rf"""# {mo.icon("lucide:file-user")} Population""")],
-        justify="start",
-    )
-    return
-
-
-@app.cell
-def ui_population_tabs(
-    MODELS,
-    base_outputs,
-    compare_distributions,
-    mo,
-    proj_outputs,
-):
-    mo.accordion(
-        {
-            "### Persons": mo.vstack(
-                [
-                    mo.hstack(
-                        [
-                            compare_distributions(
-                                base_outputs, proj_outputs, "persons", "sex"
-                            ),
-                            compare_distributions(
-                                base_outputs, proj_outputs, "persons", "ptype"
-                            ),
-                        ],
-                        widths="equal",
-                    ),
-                    # compare_distributions(
-                    #     base_outputs, proj_outputs, "persons", "OCCUPATION"
-                    # ),
-                ]
-            ),
-            "### Households": mo.hstack(
-                [
-                    compare_distributions(
-                        base_outputs,
-                        proj_outputs,
-                        "households",
-                        MODELS["household_person"]["auto_ownership"]["result_field"],
-                    ),
-                    compare_distributions(
-                        base_outputs,
-                        proj_outputs,
-                        "households",
-                        "num_workers",
-                    ),
-                ],
-                widths="equal",
-            ),
-        },
-        lazy=True,
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""-------""")
-    return
-
-
-@app.cell
-def ui_tours(mo):
-    mo.hstack([mo.md(rf"""# {mo.icon("lucide:repeat")} Tours""")], justify="start")
-    return
-
-
-@app.cell
-def ui_tour_distance_cutoff(cutoff_distance_slider):
-    cutoff_distance_slider
-    return
-
-
-@app.cell
-def _(mo, plot_dist_to_business, plot_dist_to_school, plot_dist_to_work):
-    mo.accordion(
-        {
-            "### Distance to work": plot_dist_to_work,
-            "### Distance to business": plot_dist_to_business,
-            "### Distance to school": plot_dist_to_school,
-        },
-        lazy=True,
-        multiple=True,
-    )
-    return
-
-
-@app.cell
-def _():
-    # def compute_agg_by(
-    #         lazy_df: pl.LazyFrame, group_cols: List[str]
-    #     ) -> pl.DataFrame:
-    #         return (
-    #             lazy_df.group_by(group_cols)
-    #             .agg(len=pl.len().cast(pl.Int64))
-    #             .collect()
-    #         )
-
-    # def generate_dist_to_mandatory_destinations2(
-    #     scenario_outputs,
-    #     tour_type: str,
-    #     scenario_name: str,
-    #     by_columns: List[str] = None,
-    # ):
-
-    #     variable = "distance"
-
-    #     # Filter the grouping columns to those that exist in 'base'
-    #     existed_by_columns = (
-    #         [col for col in by_columns if col in scenario_outputs['tours'].collect_schema().keys()]
-    #         if by_columns
-    #         else None
-    #     )
-    #     agg_cols = [variable] + (existed_by_columns if existed_by_columns else [])
-
-    #     # Compute aggregated data for Base and Project scenarios
-    #     agg_df = (
-    #         scenario_outputs['tours']
-    #         .pipe(compute_agg_by, agg_cols)
-    #     )
-
-    #     return(agg_df)
-
-    #     # return (
-    #     #     scenario_outputs["tours"]
-    #     #     .filter(
-    #     #         pl.col("tour_category") == "mandatory",
-    #     #         pl.col("tour_type") == tour_type,
-    #     #     )
-    #     #     .join(
-    #     #         scenario_outputs["skims"].with_columns(
-    #     #             pl.col("origin", "destination").cast(pl.Float64),
-    #     #             pl.col("SOV_FREE_DISTANCE__AM").alias("distance"),
-    #     #         ),
-    #     #         on=["origin", "destination"],
-    #     #         how="left",
-    #     #     )
-    #     #     .with_columns(pl.col("distance").floor())
-    #     #     .group_by("distance")
-    #     #     .agg(pl.len().alias("count"))
-    #     #     .with_columns(
-    #     #         share=pl.col("count") / pl.col("count").sum(),
-    #     #         scenario=pl.lit(scenario_name),
-    #     #     )
-    #     #     .collect()
-    #     # )
-
-    # _tour_type = "school"
-
-    # _base_dist = generate_dist_to_mandatory_destinations2(
-    #     base_outputs, _tour_type, "Base"
-    # )
-    # _proj_dist = generate_dist_to_mandatory_destinations2(
-    #     proj_outputs, _tour_type, "Project"
-    # )
-
-    # pl.concat([_base_dist, _proj_dist])
-    return
-
-
-@app.cell
-def generate_dist_to_mandatory_destinations(List, PARAMS, pl):
-    def generate_dist_to_mandatory_destinations(
-        scenario_outputs,
-        tour_type: str,
-        scenario_name: str,
-        by_columns: List[str] = None,
-    ):
-        return (
-            scenario_outputs["tours"]
-            .filter(
-                pl.col("tour_category") == "mandatory",
-                pl.col("tour_type") == tour_type,
-            )
-            .with_columns(pl.col("origin", "destination").cast(pl.Int64))
-            .join(
-                scenario_outputs["skims"].with_columns(
-                    pl.col("origin", "destination").cast(pl.Int64),
-                    pl.col(PARAMS["skims_distance_column"]).alias("distance"),
-                ),
-                on=["origin", "destination"],
-                how="left",
-            )
-            .with_columns(pl.col("distance").floor())
-            .group_by("distance")
-            .agg(pl.len().alias("count"))
-            .with_columns(
-                share=pl.col("count") / pl.col("count").sum(),
-                scenario=pl.lit(scenario_name),
-            )
-            .collect()
-        )
-    return (generate_dist_to_mandatory_destinations,)
-
-
-@app.cell
-def _(dist_school_tours, dist_work_tours, mo):
-    _max_distance = max(
-        [
-            dist_work_tours["distance"].max(),
-            # dist_business_tours["distance"].max(),
-            dist_school_tours["distance"].max(),
-        ]
-    )
-
-    cutoff_distance_slider = mo.ui.slider(
-        start=0,
-        stop=_max_distance,
-        label="Cut-off distance (KM)",
-        value=min(_max_distance, 80),
-    )
-    return (cutoff_distance_slider,)
-
-
-@app.cell
-def _(base_outputs, generate_dist_to_mandatory_destinations, pl, proj_outputs):
-    _tour_type = "school"
-
-    _base_dist = generate_dist_to_mandatory_destinations(
-        base_outputs, _tour_type, "Base"
-    )
-    _proj_dist = generate_dist_to_mandatory_destinations(
-        proj_outputs, _tour_type, "Project"
-    )
-
-    dist_school_tours = pl.concat([_base_dist, _proj_dist])
-    return (dist_school_tours,)
-
-
-@app.cell
-def _(base_outputs, generate_dist_to_mandatory_destinations, pl, proj_outputs):
-    _tour_type = "business"
-
-    _base_dist = generate_dist_to_mandatory_destinations(
-        base_outputs, _tour_type, "Base"
-    )
-    _proj_dist = generate_dist_to_mandatory_destinations(
-        proj_outputs, _tour_type, "Project"
-    )
-
-    dist_business_tours = pl.concat([_base_dist, _proj_dist])
-    return (dist_business_tours,)
-
-
-@app.cell
-def _(base_outputs, generate_dist_to_mandatory_destinations, pl, proj_outputs):
-    _tour_type = "work"
-
-    _base_dist = generate_dist_to_mandatory_destinations(
-        base_outputs, _tour_type, "Base"
-    )
-    _proj_dist = generate_dist_to_mandatory_destinations(
-        proj_outputs, _tour_type, "Project"
-    )
-
-    dist_work_tours = pl.concat([_base_dist, _proj_dist])
-    return (dist_work_tours,)
-
-
-@app.cell
-def _(pl, px, scenario_discrete_color_map):
-    def plot_dist_to_mand_tour(_dist_tours, cutoff_distance_slider):
-        _fig = px.bar(
-            _dist_tours.filter(pl.col("distance") <= cutoff_distance_slider.value),
-            y="share",
-            x="distance",
-            color="scenario",
-            barmode="group",
-            subtitle=f"Cut-off distance at {cutoff_distance_slider.value}KM",
-            labels={"share": "Proportion (%)", "distance": "Distance"},
-            color_discrete_map=scenario_discrete_color_map,
-        )
-
-        _fig.update_layout(yaxis=dict(tickformat=".0%"))
-
-        return _fig
-    return (plot_dist_to_mand_tour,)
-
-
-@app.cell
-def _(cutoff_distance_slider, dist_work_tours, plot_dist_to_mand_tour):
-    plot_dist_to_work = plot_dist_to_mand_tour(
-        dist_work_tours, cutoff_distance_slider
-    )
-    return (plot_dist_to_work,)
-
-
-@app.cell
-def _(cutoff_distance_slider, dist_business_tours, plot_dist_to_mand_tour):
-    plot_dist_to_business = plot_dist_to_mand_tour(
-        dist_business_tours, cutoff_distance_slider
-    )
-    return (plot_dist_to_business,)
-
-
-@app.cell
-def _(cutoff_distance_slider, dist_school_tours, plot_dist_to_mand_tour):
-    plot_dist_to_school = plot_dist_to_mand_tour(
-        dist_school_tours, cutoff_distance_slider
-    )
-    return (plot_dist_to_school,)
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""-------""")
-    return
-
-
-@app.cell
-def _(mo):
-    mo.hstack([mo.md(rf"""# {mo.icon("lucide:route")} Trips""")], justify="start")
-    return
-
-
-@app.cell
-def _(base_outputs, compare_distributions, mo, proj_outputs):
-    mo.accordion(
-        {
-            "## Plots": mo.vstack(
-                [
-                    mo.hstack(
-                        [
-                            compare_distributions(
-                                base_outputs,
-                                proj_outputs,
-                                "trips",
-                                "trip_mode",
-                            ),
-                            compare_distributions(
-                                base_outputs, proj_outputs, "trips", "depart"
-                            ),
-                            compare_distributions(
-                                base_outputs,
-                                proj_outputs,
-                                "trips",
-                                "primary_purpose",
-                            ),
-                        ],
-                        widths="equal",
-                    ),
-                ]
-            )
-        },
-        lazy=True,
-    )
-    return
-
-
-@app.cell
-def ui_profiling(mo):
-    mo.vstack(
-        [
-            mo.hstack(
-                [mo.md(rf"""# {mo.icon("lucide:gauge")} Profiling""")],
-                justify="start",
-            ),
-            mo.accordion(
-                {
-                    "Work in progress": mo.callout(
-                        """
-            This section will compare the model runtime and memory usage of the two scenarios.
-            """,
-                        kind="warn",
-                    )
-                }
-            ),
-        ]
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(folium):
-    # zone_shp = (
-    #     gpd.read_file(
-    #         r"/Users/amarin/GitHub/tmp/activitysim-prototype-mtc/output/summarize/taz1454.geojson",
-    #         use_arrow=True,
-    #     )
-    #     .to_crs(crs="EPSG:4326")
-    #     .rename(columns={"TAZ1454": "zone_id"})
-    #     .filter(items=["zone_id", "geometry"])
-    # )
-
-
-    # BASE_OUTPUTS["land_use"] = zone_shp.merge(
-    #     BASE_OUTPUTS["land_use"].collect().to_pandas(), on="zone_id"
-    # )
-    # PROJ_OUTPUTS["land_use"] = zone_shp.merge(
-    #     PROJ_OUTPUTS["land_use"].collect().to_pandas(), on="zone_id"
-    # )
-
-
-    def create_dualmap_leaflet(gdf):
-        # find centre of the shp file
-        center_y = gdf.geometry.centroid.y.mean()
-        center_x = gdf.geometry.centroid.x.mean()
-
-        # create a dualmap object
-        m = folium.plugins.DualMap(
-            location=(center_y, center_x), tiles=None, zoom_start=13
-        )
-
-        # create basemaps
-        folium.TileLayer("cartodbpositron").add_to(m.m1)
-        folium.TileLayer("cartodbpositron").add_to(m.m2)
-
-        # add polygons
-        gdf[["zone_id", "employment_density", "geometry"]].explore(
-            m=m.m1, column="employment_density"
-        )
-        gdf[["zone_id", "household_density", "geometry"]].explore(
-            m=m.m2, column="household_density"
-        )
-
-        # add options
-        folium.LayerControl(collapsed=False).add_to(m)
-
-        return m
-
-
-    # overview_dualmap = create_dualmap_leaflet(BASE_OUTPUTS["land_use"])
-    return (create_dualmap_leaflet,)
-
-
-@app.cell(hide_code=True)
-def _(Dict, List, Optional, Union, pl, px, scenario_discrete_color_map):
-    def compare_distributions(
-        base: Dict,
-        proj: Dict,
-        table: str,
-        variable: Optional[Union[str, List[str]]] = None,
-    ) -> px.fig:
-        """
-        Compare the distributions of specified variable(s) in two Lazy Polars DataFrames using Altair histograms.
-
-        The function collects the LazyFrames, adds a 'source' column to distinguish the datasets,
-        and reshapes the combined data into a long format without converting to Pandas.
-        The resulting data is passed to Altair as a list of dictionaries.
-        """
-
-        # Add a 'source' column to each DataFrame.
-        df1 = base[table].with_columns(pl.lit("Base").alias("source"))
-        df2 = proj[table].with_columns(pl.lit("Project").alias("source"))
-
-        # Combine the two DataFrames.
-        combined = pl.concat([df1, df2])
-
-        # Determine which columns to include. Exclude the 'source' column.
-        if variable is None:
-            value_vars = [
-                col for col in combined.collect_schema().columns if col != "source"
-            ]
-        elif isinstance(variable, str):
-            value_vars = [variable]
-        else:
-            value_vars = variable
-
-        unique_count = (
-            combined.select(pl.col(variable).n_unique()).collect().item()
-        )
-
-        plot_title = variable.upper()
-
-        if unique_count > 50:
-            fig = px.histogram(
-                combined.select(pl.col("source", variable)).collect(),
-                x=variable,
-                color="source",
-                barmode="overlay",
-                title=f"{plot_title} Histogram",
-                nbins=50,  # Adjust the number of bins as needed.
-            )
-        else:
-            agg_data = (
-                combined.group_by("source", variable)
-                .len()
-                .with_columns(
-                    pl.col(variable).cast(pl.String).alias("_variable_string")
-                )
-                .sort("_variable_string")
-                .collect()
-            )
-            fig = px.bar(
-                agg_data,
-                x=variable,
-                y="len",
-                color="source",
-                barmode="group",
-                title=plot_title,
-                color_discrete_map=scenario_discrete_color_map,
-                text_auto=".3s",
-            )
-
-        fig.update_layout(
-            yaxis_title="Count",
-            xaxis_title=None,
-            legend_title_text=None,
-            showlegend=False,
-        )
-
-        return fig
-    return (compare_distributions,)
 
 
 if __name__ == "__main__":
