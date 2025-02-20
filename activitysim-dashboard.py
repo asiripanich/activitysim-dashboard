@@ -18,11 +18,11 @@
 import marimo
 
 __generated_with = "0.11.6"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", app_title="ActivitySim dashboard")
 
 
 @app.cell(hide_code=True)
-def _():
+def import_packages():
     import marimo as mo
     import os
     import polars as pl
@@ -30,17 +30,17 @@ def _():
     from typing import Any, Dict, Optional
     import plotly.express as px
     import geopandas as gpd
-    from great_tables import GT
+    from great_tables import GT, style, loc, md
 
     # import openmatrix
 
     # import leafmap.foliumap as leafmap
     # import folium
-    return Any, Dict, GT, Optional, cs, gpd, mo, os, pl, px
+    return Any, Dict, GT, Optional, cs, gpd, loc, md, mo, os, pl, px, style
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def title(mo):
     mo.hstack(
         [
             # mo.image(
@@ -87,7 +87,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def banner_html_code(mo):
     mo.md(
         r"""
         <head>
@@ -99,7 +99,7 @@ def _(mo):
               border-radius: 4px;
               color: #ffffff;
               padding: 10px 20px;
-              min-width: 500px;
+              min-width: 535px;
               max-height: 60px;
               align-items: center;
             }
@@ -111,181 +111,39 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(base_dir, mo, proj_dir, scenario_discrete_color_map):
-    mo.hstack(
+def input_settings(base_dir, mo, proj_dir, scenario_discrete_color_map):
+    mo.vstack(
         [
-            mo.vstack(
+            mo.hstack(
                 [
-                    mo.md(f"""
-                        <button class="take-challenge-btn" style='background: linear-gradient(to right, #bac5c5, #ffffff);'>
-                            <h1> Base </h1> 
+                    mo.vstack(
+                        [
+                            mo.md(f"""
+                        <button class="take-challenge-btn" style='background: linear-gradient(to right, {scenario_discrete_color_map["Base"]}, #ffffff);'>
+                            <h1 style="text-align: left;"> Base </h1> 
                       </button>"""),
-                    # base_label,
-                    base_dir,
-                ]
-            ),
-            mo.vstack(
-                [
-                    mo.md(f"""
+                            # base_label,
+                            base_dir,
+                        ]
+                    ),
+                    mo.vstack(
+                        [
+                            mo.md(f"""
                         <button class="take-challenge-btn" style="background: linear-gradient(to left, {scenario_discrete_color_map["Project"]}, #ffffff); color: #ffffff;">
-                            <h1> Project </h1>
+                            <h1 style="text-align: right;"> Project </h1>
                       </button>"""),
-                    # proj_label,
-                    proj_dir,
-                ]
+                            # proj_label,
+                            proj_dir,
+                        ]
+                    ),
+                ],
+                justify="space-around",
+                align="stretch",
+                widths="equal",
             ),
-        ],
-        justify="space-around",
-        align="stretch",
-        widths="equal",
+            mo.md("-------"),
+        ]
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _():
-    # mo.ui.tabs(
-    #     {
-    #         # Overview --------------------------------------------------------------------------------
-    #         f"<h2>{mo.icon('lucide:chart-bar-big')} Overview</h2>": mo.vstack(
-    #             [
-    #                 summary_cards,
-    #                 # mo.accordion(
-    #                 #     {
-    #                 #         f"<h2>{mo.icon('lucide:gauge')} Runtime and memory usage</h2>": mo.hstack(
-    #                 #             []
-    #                 #         )
-    #                 #     },
-    #                 #     lazy=True,
-    #                 # ),
-    #                 # mo.accordion({"<h2>aaa</h2>": mo.hstack([])}, lazy=True)
-    #                 # overview_dualmap,
-    #             ]
-    #         ),
-    #         # Models -----------------
-    #         # f"<h2>{mo.icon('lucide:square-chevron-right')} Models</h2>": mo.vstack([models_tab_ui])
-    #         # ,
-    #         # Population --------------------------------------------------------------------------------
-    #         f"<h2>{mo.icon('lucide:file-user')} Population</h2>": mo.lazy(
-    #             mo.vstack(
-    #                 [
-    #                     mo.md("## Persons"),
-    #                     mo.hstack(
-    #                         [
-    #                             compare_distributions(
-    #                                 base_outputs, proj_outputs, "persons", "sex"
-    #                             ),
-    #                             # compare_distributions(
-    #                             #     base_outputs, proj_outputs, "persons", "age"
-    #                             # ),
-    #                             compare_distributions(
-    #                                 base_outputs, proj_outputs, "persons", "ptype"
-    #                             ),
-    #                         ],
-    #                         widths="equal",
-    #                     ),
-    #                     mo.md("## Households"),
-    #                     mo.hstack(
-    #                         [
-    #                             compare_distributions(
-    #                                 base_outputs,
-    #                                 proj_outputs,
-    #                                 "households",
-    #                                 "AUTO_OWNERSHIP",
-    #                             ),
-    #                             compare_distributions(
-    #                                 base_outputs,
-    #                                 proj_outputs,
-    #                                 "households",
-    #                                 "num_workers",
-    #                             ),
-    #                         ],
-    #                         widths="equal",
-    #                     ),
-    #                 ]
-    #             ),
-    #             show_loading_indicator=True,
-    #         ),
-    #         # Land use --------------------------------------------------------------------------------
-    #         # f" <h2>{mo.icon('lucide:earth')} Land use</h2>": mo.vstack(
-    #         #     [overview_dualmap]
-    #         # ),
-    #         # trips --------------------------------------------------------------------------------
-    #         f" <h2>{mo.icon('lucide:route')} Trips</h2>": mo.lazy(
-    #             mo.vstack(
-    #                 [
-    #                     #         # mo.hstack(
-    #                     #         #     [
-    #                     #         #         compare_distributions(
-    #                     #         #             base_outputs,
-    #                     #         #             proj_outputs,
-    #                     #         #             "trips",
-    #                     #         #             "trip_mode",
-    #                     #         #         ),
-    #                     #         #         compare_distributions(
-    #                     #         #             base_outputs, proj_outputs, "trips", "depart"
-    #                     #         #         ),
-    #                     #         #         compare_distributions(
-    #                     #         #             base_outputs,
-    #                     #         #             proj_outputs,
-    #                     #         #             "trips",
-    #                     #         #             "primary_purpose",
-    #                     #         #         ),
-    #                     #         #     ],
-    #                     #         #     widths="equal",
-    #                     #         # ),
-    #                 ]
-    #             ),
-    #             show_loading_indicator=True,
-    #         ),
-    #         # tours --------------------------------------------------------------------------------
-    #         f"<h2>{mo.icon('lucide:repeat')} Tours</h2>": mo.lazy(
-    #             mo.vstack(
-    #                 [
-    #                     cutoff_distance_slider,
-    #                     plot_dist_to_mandatory_destinations,
-    #                     # mo.hstack(
-    #                     #     [
-    #                     #         compare_distributions(
-    #                     #             base_outputs,
-    #                     #             proj_outputs,
-    #                     #             "tours",
-    #                     #             "tour_category",
-    #                     #         ),
-    #                     #         compare_distributions(
-    #                     #             base_outputs,
-    #                     #             proj_outputs,
-    #                     #             "tours",
-    #                     #             "number_of_participants",
-    #                     #         ),
-    #                     #     ],
-    #                     #     widths="equal",
-    #                     # ),
-    #                     # mo.hstack(
-    #                     #     [
-    #                     #         compare_distributions(
-    #                     #             base_outputs, proj_outputs, "tours", "start"
-    #                     #         ),
-    #                     #         compare_distributions(
-    #                     #             base_outputs, proj_outputs, "tours", "end"
-    #                     #         ),
-    #                     #     ],
-    #                     #     widths="equal",
-    #                     # ),
-    #                 ]
-    #             ),
-    #             show_loading_indicator=True,
-    #         ),
-    #         # models ------------------------------------------------------------------------------
-    #         # f"<h2>{mo.icon('lucide:square-chevron-right')} Models</h2>": models_tab_ui,
-    #     }
-    # )
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""-------""")
     return
 
 
@@ -322,18 +180,30 @@ def _(mo):
 @app.cell
 def _(column_table, mo):
     mo.accordion(
-        {"### Select a variable from the table to group by": column_table}
+        {
+            "#### 👀 Model structure": mo.hstack(
+                [
+                    mo.image(
+                        "https://rsginc.com/wp-content/uploads/2021/01/Example-Activity-Based-Model-and-Submodel-Structure-2048x1907.png",
+                        width=500,
+                        caption="ActivitySim model structure",
+                    )
+                ],
+                justify="center",
+            ),
+            "#### 🔎 Select a variable from the table to group by": column_table,
+        }
     )
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(models_tab_ui):
     models_tab_ui
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     base_outputs,
     generate_model_diagnostic,
@@ -554,32 +424,22 @@ def _(
 
     models_tab_ui = mo.vstack(
         [
-            mo.accordion({"### Long-term choices": long_term_choices}),
+            mo.accordion({"### Households/Persons": long_term_choices}),
             mo.accordion({"### Tours": tour_choices}),
             mo.accordion({"### Trips": trip_choices}),
-            # mo.hstack(
-            #     [
-            #         mo.image(
-            #             "https://rsginc.com/wp-content/uploads/2021/01/Example-Activity-Based-Model-and-Submodel-Structure-2048x1907.png",
-            #             width=650,
-            #             caption="ActivitySim model structure",
-            #         )
-            #     ],
-            #     justify="center",
-            # ),
         ]
     )
     return long_term_choices, models_tab_ui, tour_choices, trip_choices
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     # base_outputs["tours"].head().collect()
     # base_outputs["tours"].group_by("composition").len().collect()
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     # (
     #     proj_outputs["tours"]
@@ -589,7 +449,7 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def column_filter_table(base_outputs, pl):
     all_columns_df = pl.concat(
         [
@@ -609,16 +469,14 @@ def column_filter_table(base_outputs, pl):
     return (all_columns_df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(all_columns_df, mo):
     column_table = mo.ui.table(all_columns_df.to_pandas())
     return (column_table,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(column_table):
-    # selected_columns = None
-
     selected_columns = (
         column_table.value["variable"].to_list()
         if len(column_table.value["variable"]) > 0
@@ -661,7 +519,7 @@ def _(folium):
     return (create_dualmap_leaflet,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(Dict, List, Optional, Union, pl, px, scenario_discrete_color_map):
     def compare_distributions(
         base: Dict,
@@ -839,34 +697,22 @@ def _(Any, Dict, Optional, base_outputs, mo, pl, proj_outputs):
         total_tours = outputs["tours"].pipe(_total_rows)
 
         return {
-            "total_persons": total_persons,
-            "total_households": total_households,
-            "average_household_size": total_persons / total_households,
-            "total_trips": total_trips,
-            "total_tours": total_tours,
-            "person_trips": total_trips / total_persons,
-            "person_tours": total_tours / total_persons,
-            "work_from_home": outputs["persons"].pipe(
+            "🧍 total_persons": total_persons,
+            "🏠 total_households": total_households,
+            "👩🏻‍🤝‍👨🏾 average_household_size": total_persons / total_households,
+            "➡️ total_trips": total_trips,
+            "🔁 total_tours": total_tours,
+            "🧍➡️ person_trips": total_trips / total_persons,
+            "🧍🔁 person_tours": total_tours / total_persons,
+            "☕️ remote_workers": outputs["persons"].pipe(
                 _total_binary_variable, "work_from_home"
             ),
-            "free_parking_at_work": outputs["persons"].pipe(
+            "💼🚗 free_parking_at_work": outputs["persons"].pipe(
                 _total_binary_variable, "free_parking_at_work"
             ),
-            "free_parking_at_work": outputs["persons"].pipe(
-                _total_binary_variable, "free_parking_at_work"
-            ),
-            "zero-car_households": outputs["households"].pipe(
+            "0️⃣🚗 zero-car_households": outputs["households"].pipe(
                 _total_catagorical_variable, "AUTO_OWNERSHIP", 0
             ),
-            # "one-car_households": outputs["households"].pipe(
-            #     _total_catagorical_variable, "AUTO_OWNERSHIP", 1
-            # ),
-            # "two-car_households": outputs["households"].pipe(
-            #     _total_catagorical_variable, "AUTO_OWNERSHIP", 2
-            # ),
-            # "three_or_more cars_households": outputs["households"].pipe(
-            #     _total_catagorical_variable, "AUTO_OWNERSHIP", 2
-            # ),
         }
 
 
@@ -934,7 +780,20 @@ def _(Any, Dict, Optional, base_outputs, mo, pl, proj_outputs):
 
 
 @app.cell
-def _(GT, List, Optional, cs, mo, pl, px, scenario_discrete_color_map):
+def _(
+    GT,
+    List,
+    Optional,
+    cs,
+    loc,
+    md,
+    mo,
+    pl,
+    px,
+    scenario_discrete_color_map,
+    style,
+):
+    @mo.persistent_cache
     def generate_model_diagnostic(
         base: pl.LazyFrame,
         proj: pl.LazyFrame,
@@ -964,20 +823,41 @@ def _(GT, List, Optional, cs, mo, pl, px, scenario_discrete_color_map):
             )
 
         def _gen_great_table(tab_df: pl.DataFrame):
+            # rmse, srmse, avg pct error
+            metrics = tab_df.select(
+                rmse=((pl.col("len_Project") - pl.col("len_Base")) ^ 2)
+                .mean()
+                .sqrt()
+                .round(2),
+                mape=(
+                    (
+                        (pl.col("len_Project") - pl.col("len_Base")).abs()
+                        / pl.col("len_Base")
+                    ).mean()
+                    * 100
+                ).round(1),
+            )
+
+            rmse = metrics["rmse"].item()
+            mape = metrics["mape"].item()
+
             return (
                 GT(tab_df)
-                .tab_spanner(label="Share (%)", columns=cs.starts_with("share_"))
+                .tab_header(title=f"RMSE: {rmse}, MAPE: {mape}%")
                 .tab_spanner(
-                    label="Count", columns=[cs.starts_with("len_"), "diff"]
+                    label=md("**Share (%)**"), columns=cs.starts_with("share_")
+                )
+                .tab_spanner(
+                    label=md("**Count**"), columns=[cs.starts_with("len_"), "diff"]
                 )
                 .cols_move(columns="pct_diff", after="diff")
                 .cols_label(
-                    share_Base="Base",
-                    share_Project="Project",
-                    len_Base="Base",
-                    len_Project="Project",
-                    diff="Project - Base",
-                    pct_diff="% difference",
+                    share_Base=md("**Base**"),
+                    share_Project=md("**Project**"),
+                    len_Base=md("**Base**"),
+                    len_Project=md("**Project**"),
+                    diff=md("**Project - Base**"),
+                    pct_diff=md("% **difference**"),
                 )
                 .fmt_percent(columns=[cs.starts_with("share_"), "pct_diff"])
                 .fmt_integer(columns=[cs.starts_with("len_"), "diff"])
@@ -988,9 +868,13 @@ def _(GT, List, Optional, cs, mo, pl, px, scenario_discrete_color_map):
                 )
                 .data_color(
                     columns=["pct_diff"],
-                    palette="RdYlBu",
-                    domain=[-1, 1],
+                    palette="RdBu",
+                    domain=[-1.5, 1.5],
                     na_color="lightgray",
+                )
+                .tab_style(
+                    style=style.text(weight="bolder"),
+                    locations=loc.column_header(),
                 )
             )
 
@@ -1024,6 +908,7 @@ def _(GT, List, Optional, cs, mo, pl, px, scenario_discrete_color_map):
                     x=0.5,
                 ),
                 legend_title_text="",
+                legend_font_size=14,
             )
             if col == "share":
                 fig.update_layout(yaxis=dict(tickformat=".0%"))
@@ -1125,8 +1010,8 @@ def _(base_outputs, compare_distributions, mo, proj_outputs):
                         widths="equal",
                     ),
                     compare_distributions(
-                                base_outputs, proj_outputs, "persons", "OCCUPATION"
-                    )
+                        base_outputs, proj_outputs, "persons", "OCCUPATION"
+                    ),
                 ]
             ),
             "### Households": mo.hstack(
@@ -1185,9 +1070,85 @@ def _(mo, plot_dist_to_business, plot_dist_to_school, plot_dist_to_work):
 
 
 @app.cell
-def _(pl):
-    def gen_plot_dist_to_mandatory_destinations(
-        scenario_outputs, tour_type, scenario_name
+def _():
+    # def compute_agg_by(
+    #         lazy_df: pl.LazyFrame, group_cols: List[str]
+    #     ) -> pl.DataFrame:
+    #         return (
+    #             lazy_df.group_by(group_cols)
+    #             .agg(len=pl.len().cast(pl.Int64))
+    #             .collect()
+    #         )
+
+    # def generate_dist_to_mandatory_destinations2(
+    #     scenario_outputs,
+    #     tour_type: str,
+    #     scenario_name: str,
+    #     by_columns: List[str] = None,
+    # ):
+
+    #     variable = "distance"
+
+    #     # Filter the grouping columns to those that exist in 'base'
+    #     existed_by_columns = (
+    #         [col for col in by_columns if col in scenario_outputs['tours'].collect_schema().keys()]
+    #         if by_columns
+    #         else None
+    #     )
+    #     agg_cols = [variable] + (existed_by_columns if existed_by_columns else [])
+
+    #     # Compute aggregated data for Base and Project scenarios
+    #     agg_df = (
+    #         scenario_outputs['tours']
+    #         .pipe(compute_agg_by, agg_cols)
+    #     )
+
+    #     return(agg_df)
+
+    #     # return (
+    #     #     scenario_outputs["tours"]
+    #     #     .filter(
+    #     #         pl.col("tour_category") == "mandatory",
+    #     #         pl.col("tour_type") == tour_type,
+    #     #     )
+    #     #     .join(
+    #     #         scenario_outputs["skims"].with_columns(
+    #     #             pl.col("origin", "destination").cast(pl.Float64),
+    #     #             pl.col("SOV_FREE_DISTANCE__AM").alias("distance"),
+    #     #         ),
+    #     #         on=["origin", "destination"],
+    #     #         how="left",
+    #     #     )
+    #     #     .with_columns(pl.col("distance").floor())
+    #     #     .group_by("distance")
+    #     #     .agg(pl.len().alias("count"))
+    #     #     .with_columns(
+    #     #         share=pl.col("count") / pl.col("count").sum(),
+    #     #         scenario=pl.lit(scenario_name),
+    #     #     )
+    #     #     .collect()
+    #     # )
+
+    # _tour_type = "school"
+
+    # _base_dist = generate_dist_to_mandatory_destinations2(
+    #     base_outputs, _tour_type, "Base"
+    # )
+    # _proj_dist = generate_dist_to_mandatory_destinations2(
+    #     proj_outputs, _tour_type, "Project"
+    # )
+
+    # pl.concat([_base_dist, _proj_dist])
+    return
+
+
+@app.cell
+def _(List, pl):
+    def generate_dist_to_mandatory_destinations(
+        scenario_outputs,
+        tour_type: str,
+        scenario_name: str,
+        by_columns: List[str] = None,
     ):
         return (
             scenario_outputs["tours"]
@@ -1210,10 +1171,9 @@ def _(pl):
                 share=pl.col("count") / pl.col("count").sum(),
                 scenario=pl.lit(scenario_name),
             )
-            # .select("distance")
             .collect()
         )
-    return (gen_plot_dist_to_mandatory_destinations,)
+    return (generate_dist_to_mandatory_destinations,)
 
 
 @app.cell
@@ -1236,16 +1196,16 @@ def _(dist_business_tours, dist_school_tours, dist_work_tours, mo):
 @app.cell
 def _(
     base_outputs,
-    gen_plot_dist_to_mandatory_destinations,
+    generate_dist_to_mandatory_destinations,
     pl,
     proj_outputs,
 ):
     _tour_type = "school"
 
-    _base_dist = gen_plot_dist_to_mandatory_destinations(
+    _base_dist = generate_dist_to_mandatory_destinations(
         base_outputs, _tour_type, "Base"
     )
-    _proj_dist = gen_plot_dist_to_mandatory_destinations(
+    _proj_dist = generate_dist_to_mandatory_destinations(
         proj_outputs, _tour_type, "Project"
     )
 
@@ -1256,16 +1216,16 @@ def _(
 @app.cell
 def _(
     base_outputs,
-    gen_plot_dist_to_mandatory_destinations,
+    generate_dist_to_mandatory_destinations,
     pl,
     proj_outputs,
 ):
     _tour_type = "business"
 
-    _base_dist = gen_plot_dist_to_mandatory_destinations(
+    _base_dist = generate_dist_to_mandatory_destinations(
         base_outputs, _tour_type, "Base"
     )
-    _proj_dist = gen_plot_dist_to_mandatory_destinations(
+    _proj_dist = generate_dist_to_mandatory_destinations(
         proj_outputs, _tour_type, "Project"
     )
 
@@ -1276,16 +1236,16 @@ def _(
 @app.cell
 def _(
     base_outputs,
-    gen_plot_dist_to_mandatory_destinations,
+    generate_dist_to_mandatory_destinations,
     pl,
     proj_outputs,
 ):
     _tour_type = "work"
 
-    _base_dist = gen_plot_dist_to_mandatory_destinations(
+    _base_dist = generate_dist_to_mandatory_destinations(
         base_outputs, _tour_type, "Base"
     )
-    _proj_dist = gen_plot_dist_to_mandatory_destinations(
+    _proj_dist = generate_dist_to_mandatory_destinations(
         proj_outputs, _tour_type, "Project"
     )
 
@@ -1351,30 +1311,53 @@ def _(mo):
 
 @app.cell
 def _(base_outputs, compare_distributions, mo, proj_outputs):
-    mo.accordion({"## Plots": mo.vstack(
-            [
-                mo.hstack(
-                    [
-                        compare_distributions(
-                            base_outputs,
-                            proj_outputs,
-                            "trips",
-                            "trip_mode",
-                        ),
-                        compare_distributions(
-                            base_outputs, proj_outputs, "trips", "depart"
-                        ),
-                        compare_distributions(
-                            base_outputs,
-                            proj_outputs,
-                            "trips",
-                            "primary_purpose",
-                        ),
-                    ],
-                    widths="equal",
-                ),
-            ]
-        )}, lazy=True
+    mo.accordion(
+        {
+            "## Plots": mo.vstack(
+                [
+                    mo.hstack(
+                        [
+                            compare_distributions(
+                                base_outputs,
+                                proj_outputs,
+                                "trips",
+                                "trip_mode",
+                            ),
+                            compare_distributions(
+                                base_outputs, proj_outputs, "trips", "depart"
+                            ),
+                            compare_distributions(
+                                base_outputs,
+                                proj_outputs,
+                                "trips",
+                                "primary_purpose",
+                            ),
+                        ],
+                        widths="equal",
+                    ),
+                ]
+            )
+        },
+        lazy=True,
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.vstack(
+        [
+            mo.hstack(
+                [mo.md(rf"""# {mo.icon("lucide:gauge")} Profiling""")],
+                justify="start",
+            ),
+            mo.accordion({
+                "Work in progress": mo.callout("""
+            This section will compare the model runtime and memory usage of the two scenarios.
+            """, kind="warn")    
+            })
+            
+        ]
     )
     return
 
