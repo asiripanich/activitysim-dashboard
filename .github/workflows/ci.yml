@@ -6,6 +6,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
   test-latest-linux:
     name: Test (Linux)
@@ -21,4 +25,4 @@ jobs:
         run: uv tool install marimo
 
       - name: run dashboard
-        run: uvx marimo run --sandbox dashboard.py
+        run: uvx marimo run --sandbox --headless dashboard.py
