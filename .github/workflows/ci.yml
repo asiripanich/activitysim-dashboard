@@ -20,6 +20,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+            enable-cache: true
 
       - name: "Set up Python"
         uses: actions/setup-python@v5
@@ -30,4 +32,5 @@ jobs:
         run: uv tool install marimo
 
       - name: run dashboard
-        run: uvx marimo run --sandbox --headless dashboard.py
+        run: python dashboard.py
+        # run: uvx marimo run --sandbox --headless dashboard.py
