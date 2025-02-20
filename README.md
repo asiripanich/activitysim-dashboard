@@ -5,6 +5,7 @@
 <img src="https://github.com/user-attachments/assets/09a1ef48-d946-4b85-bd8d-fa94a625fb3f" width="500" alt="asim-dashboard">
 </p>
 
+A high-performance, memory-efficient, reproducible, and extensible ActivitySim dashboard written in Python. The goal is to build a dashboard that allows ActivitySim developers to easily validate their model and compare its runs. This dashboard utilises the Parquet format—a recent addition to the output table format in ActivitySim v1.3—and Polars’ [Lazy DataFrame](https://docs.pola.rs/user-guide/lazy/) to achieve a reactive experience that doesn’t make you wait until your coffee gets cold.
 
 ## Get started
 
