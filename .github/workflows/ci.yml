@@ -23,4 +23,4 @@ jobs:
         uses: pypa/hatch@install
 
       - name: run dashboard
-        run: hatch dashboard.py
+        run: hatch run dashboard.py
