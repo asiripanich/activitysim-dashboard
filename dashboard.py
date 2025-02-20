@@ -201,27 +201,9 @@ def read_input_parquets(base_dir, os, pl, proj_dir):
         }
 
 
-    proj_outputs = lazy_read_asim_outputs(proj_dir.value)
-    base_outputs = lazy_read_asim_outputs(base_dir.value)
-
-    # zone_shp = (
-    #     gpd.read_file(
-    #         r"/Users/amarin/GitHub/tmp/activitysim-prototype-mtc/output/summarize/taz1454.geojson",
-    #         use_arrow=True,
-    #     )
-    #     .to_crs(crs="EPSG:4326")
-    #     .rename(columns={"TAZ1454": "zone_id"})
-    #     .filter(items=["zone_id", "geometry"])
-    # )
-
-
-    # base_outputs["land_use"] = zone_shp.merge(
-    #     base_outputs["land_use"].collect().to_pandas(), on="zone_id"
-    # )
-    # proj_outputs["land_use"] = zone_shp.merge(
-    #     proj_outputs["land_use"].collect().to_pandas(), on="zone_id"
-    # )
-    return base_outputs, lazy_read_asim_outputs, proj_outputs
+    PROJ_OUTPUTS = lazy_read_asim_outputs(proj_dir.value)
+    BASE_OUTPUTS = lazy_read_asim_outputs(base_dir.value)
+    return BASE_OUTPUTS, PROJ_OUTPUTS, lazy_read_asim_outputs
 
 
 @app.cell
@@ -239,16 +221,16 @@ def _(summary_cards):
     return
 
 
-@app.cell
-def _(Any, Dict, Optional, PARAMS, base_outputs, mo, pl, proj_outputs):
-    def get_model_outcome(key, default_value=None):
-        """
-        Retrieve the model outcome for the given key from PARAMS.
-        If no outcome is found, return the default value (defaults to key).
-        """
-        default_value = key if default_value is None else default_value
-        value = PARAMS.get("models", {}).get(key)
-        return value if value is not None else default_value
+@app.cell(hide_code=True)
+def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
+    # def get_model_outcome(key, default_value=None):
+    #     """
+    #     Retrieve the model outcome for the given key from PARAMS.
+    #     If no outcome is found, return the default value (defaults to key).
+    #     """
+    #     default_value = key if default_value is None else default_value
+    #     value = PARAMS.get("models", {}).get(key)
+    #     return value if value is not None else default_value
 
 
     def _get_direction(proj_value: float, base_value: float) -> Optional[str]:
@@ -330,13 +312,17 @@ def _(Any, Dict, Optional, PARAMS, base_outputs, mo, pl, proj_outputs):
             "🧍➡️ person_trips": total_trips / total_persons,
             "🧍🔁 person_tours": total_tours / total_persons,
             "☕️ remote_workers": outputs["persons"].pipe(
-                _total_binary_variable, get_model_outcome("work_from_home")
+                _total_binary_variable,
+                MODELS["household_person"].get("work_from_home").get("result_field"),
             ),
             "💼🚗 free_parking_at_work": outputs["persons"].pipe(
-                _total_binary_variable, get_model_outcome("free_parking_at_work")
+                _total_binary_variable,
+                MODELS["household_person"].get("free_parking_at_work").get("result_field"),
             ),
             "0️⃣🚗 zero-car_households": outputs["households"].pipe(
-                _total_categorical_variable, get_model_outcome("auto_ownership"), 0
+                _total_categorical_variable,
+                MODELS["household_person"].get("auto_ownership").get("result_field"),
+                0,
             ),
         }
 
@@ -397,20 +383,14 @@ def _(Any, Dict, Optional, PARAMS, base_outputs, mo, pl, proj_outputs):
 
     summary_cards = _produce_summary_cards(
         {
-            "base": _compute_summary(base_outputs),
-            "proj": _compute_summary(proj_outputs),
+            "base": _compute_summary(BASE_OUTPUTS),
+            "proj": _compute_summary(PROJ_OUTPUTS),
         }
     )
-    return get_model_outcome, summary_cards
+    return (summary_cards,)
 
 
-@app.cell
-def _(mo):
-    mo.md(r"""--------""")
-    return
-
-
-@app.cell
+@app.cell(hide_code=True)
 def ui_models(mo):
     mo.hstack(
         [mo.md(rf"""# {mo.icon("lucide:square-chevron-right")} Models""")],
@@ -419,8 +399,8 @@ def ui_models(mo):
     return
 
 
-@app.cell
-def _(column_table, mo):
+@app.cell(hide_code=True)
+def ui_models_helper(column_table, mo):
     mo.accordion(
         {
             "#### 👀 Model structure": mo.hstack(
@@ -446,7 +426,7 @@ def ui_model_tabs(models_tab_ui):
 
 
 @app.cell(hide_code=True)
-def column_filter_table(base_outputs, mo, pl):
+def column_filter_table(BASE_OUTPUTS, mo, pl):
     # Define tables to exclude
     _exclude_tables = {"skims", "land_use"}
 
@@ -455,10 +435,10 @@ def column_filter_table(base_outputs, mo, pl):
         pl.DataFrame(
             {
                 "table": table_name,
-                "variable": base_outputs[table_name].collect_schema().keys(),
+                "variable": BASE_OUTPUTS[table_name].collect_schema().keys(),
             }
         )
-        for table_name in base_outputs.keys()
+        for table_name in BASE_OUTPUTS.keys()
         if table_name not in _exclude_tables
     ]
 
@@ -471,8 +451,8 @@ def column_filter_table(base_outputs, mo, pl):
     return all_columns_df, column_table
 
 
-@app.cell
-def _(column_table):
+@app.cell(hide_code=True)
+def filter_columns(column_table):
     FILTER_COLUMNS = (
         column_table.value["variable"].to_list()
         if len(column_table.value["variable"]) > 0
@@ -481,8 +461,8 @@ def _(column_table):
     return (FILTER_COLUMNS,)
 
 
-@app.cell
-def _(pl):
+@app.cell(hide_code=True)
+def models_settings(pl):
     MODELS = {
         "household_person": {
             "auto_ownership": {
@@ -604,18 +584,18 @@ def _(pl):
     return (MODELS,)
 
 
-@app.cell
-def _(
+@app.cell(hide_code=True)
+def assemble_model_diagnostics(
+    BASE_OUTPUTS,
     FILTER_COLUMNS,
-    base_outputs,
+    PROJ_OUTPUTS,
     generate_model_diagnostic,
     mo,
-    proj_outputs,
 ):
     def assemble_model_diagnostics(fields):
         table_name = fields["table"]
-        base_lazy_df = base_outputs[table_name]
-        proj_lazy_df = proj_outputs[table_name]
+        base_lazy_df = BASE_OUTPUTS[table_name]
+        proj_lazy_df = PROJ_OUTPUTS[table_name]
         filter_expr = fields.get("filter_expr")
 
         if filter_expr is not None:
@@ -642,7 +622,7 @@ def _(
 
 
     def check_exists(fields):
-        table_cols = base_outputs[fields["table"]].collect_schema().keys()
+        table_cols = BASE_OUTPUTS[fields["table"]].collect_schema().keys()
         result_field = fields["result_field"]
 
         if isinstance(result_field, str):
@@ -652,7 +632,7 @@ def _(
     return assemble_model_diagnostics, check_exists
 
 
-@app.cell
+@app.cell(hide_code=True)
 def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
     household_person_choices = mo.accordion(
         {
@@ -689,13 +669,12 @@ def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
     return household_person_choices, models_tab_ui, tour_choices, trip_choices
 
 
-@app.cell
+@app.cell(hide_code=True)
 def generate_model_diagnostic(
     GT,
     List,
     Optional,
     cs,
-    get_model_outcome,
     loc,
     md,
     mo,
@@ -723,9 +702,6 @@ def generate_model_diagnostic(
         Returns:
             A vertically stacked object combining plotly tabs and a formatted table.
         """
-        # Process the outcome variable
-        variable = get_model_outcome(variable)
-
         # Determine grouping columns that exist in the base schema
         base_schema = base.collect_schema().keys()
         grouping_columns = (
@@ -1279,6 +1255,25 @@ def ui_profiling(mo):
 
 @app.cell(hide_code=True)
 def _(folium):
+    # zone_shp = (
+    #     gpd.read_file(
+    #         r"/Users/amarin/GitHub/tmp/activitysim-prototype-mtc/output/summarize/taz1454.geojson",
+    #         use_arrow=True,
+    #     )
+    #     .to_crs(crs="EPSG:4326")
+    #     .rename(columns={"TAZ1454": "zone_id"})
+    #     .filter(items=["zone_id", "geometry"])
+    # )
+
+
+    # BASE_OUTPUTS["land_use"] = zone_shp.merge(
+    #     BASE_OUTPUTS["land_use"].collect().to_pandas(), on="zone_id"
+    # )
+    # PROJ_OUTPUTS["land_use"] = zone_shp.merge(
+    #     PROJ_OUTPUTS["land_use"].collect().to_pandas(), on="zone_id"
+    # )
+
+
     def create_dualmap_leaflet(gdf):
         # find centre of the shp file
         center_y = gdf.geometry.centroid.y.mean()
@@ -1307,7 +1302,7 @@ def _(folium):
         return m
 
 
-    # overview_dualmap = create_dualmap_leaflet(base_outputs["land_use"])
+    # overview_dualmap = create_dualmap_leaflet(BASE_OUTPUTS["land_use"])
     return (create_dualmap_leaflet,)
 
 
