@@ -6,9 +6,6 @@ on:
     branches: [main]
   pull_request:
 
-concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
 
 jobs:
   test-latest-linux:
@@ -16,21 +13,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: 🛑 Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
+
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-            enable-cache: true
-
-      - name: "Set up Python"
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".python-version"
-      
-      - name: Install marimo to as a uv tool
-        run: uv tool install marimo
+    
+      - name: ⬇️ Install Hatch
+        uses: pypa/hatch@install
 
       - name: run dashboard
-        run: python dashboard.py
-        # run: uvx marimo run --sandbox --headless dashboard.py
+        run: hatch dashboard.py
