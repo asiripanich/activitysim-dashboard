@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-latest-linux:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      
+      - name: Install marimo to as a uv tool
+        run: uv tool install marimo
+
+      - name: run dashboard
+        run: uvx marimo run --sandbox dashboard.py
