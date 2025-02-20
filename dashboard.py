@@ -182,417 +182,6 @@ def ui_input_settings(base_dir, mo, proj_dir, scenario_discrete_color_map):
 
 
 @app.cell
-def ui_overview(mo):
-    mo.hstack(
-        [mo.md(rf"""# {mo.icon("lucide:chart-bar-big")} Overview""")],
-        justify="start",
-    )
-    return
-
-
-@app.cell
-def _(summary_cards):
-    summary_cards
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""--------""")
-    return
-
-
-@app.cell
-def ui_models(mo):
-    mo.hstack(
-        [mo.md(rf"""# {mo.icon("lucide:square-chevron-right")} Models""")],
-        justify="start",
-    )
-    return
-
-
-@app.cell
-def _(column_table, mo):
-    mo.accordion(
-        {
-            "#### 👀 Model structure": mo.hstack(
-                [
-                    mo.image(
-                        "https://rsginc.com/wp-content/uploads/2021/01/Example-Activity-Based-Model-and-Submodel-Structure-2048x1907.png",
-                        width=500,
-                        caption="ActivitySim model structure",
-                    )
-                ],
-                justify="center",
-            ),
-            "#### 🔎 Select a variable from the table to group by": column_table,
-        }
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def ui_model_tabs(models_tab_ui):
-    models_tab_ui
-    return
-
-
-@app.cell
-def _(
-    FILTER_COLUMNS,
-    base_outputs,
-    generate_model_diagnostic,
-    mo,
-    pl,
-    proj_outputs,
-):
-    MODELS = {
-        "household_person": {
-            "auto_ownership": {
-                "table": "households",
-                "result_field": "auto_ownership",
-            },
-            "work_from_home": {
-                "table": "persons",
-                "result_field": "work_from_home",
-            },
-            "free_parking_at_work": {
-                "table": "persons",
-                "result_field": "free_parking_at_work",
-            },
-            "school_location": {
-                "table": "persons",
-                "result_field": "school_zone_id",
-            },
-            "work_location": {
-                "table": "persons",
-                "result_field": "workplace_zone_id",
-            },
-            "business_location": {
-                "table": "persons",
-                "result_field": "business_zone_id",
-            },
-            "telecommute_frequency": {
-                "table": "persons",
-                "result_field": "telecommute_frequency",
-            },
-            "transit_pass_ownership": {
-                "table": "persons",
-                "result_field": "transit_pass_ownership",
-            },
-            "transit_pass_subsidy": {
-                "table": "persons",
-                "result_field": "transit_pass_subsidy",
-            },
-            "cdap_simulate": {"table": "persons", "result_field": "cdap_activity"},
-        },
-        "tour": {
-            "mandatory_tour_frequency": {
-                "table": "persons",
-                "result_field": "mandatory_tour_frequency",
-                "filter_expr": pl.col("mandatory_tour_frequency") != "",
-            },
-            "mandatory_tour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "mandatory",
-            },
-            "joint_tour_composition": {
-                "table": "tours",
-                "result_field": "composition",
-                "filter_expr": pl.col("composition") != "",
-            },
-            "joint_tour_participation": {
-                "table": "tours",
-                "result_field": "number_of_participants",
-            },
-            "joint_tour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "joint",
-            },
-            "non_mandatory_tour_frequency": {
-                "table": "persons",
-                "result_field": "non_mandatory_tour_frequency",
-                "filter_expr": pl.col("non_mandatory_tour_frequency") != 0,
-            },
-            "non_mandatory_tour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "non_mandatory",
-            },
-            "atwork_subtour_frequency": {
-                "table": "persons",
-                "result_field": "atwork_subtour_frequency",
-                "filter_expr": pl.col("atwork_subtour_frequency") != "",
-            },
-            "atwork_subtour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "atwork",
-            },
-            "atwork_subtour_mode_choice": {
-                "table": "tours",
-                "result_field": "tour_mode",
-                "filter_expr": pl.col("tour_category") == "atwork",
-            },
-            "tour_mode_choice_simulate": {
-                "table": "tours",
-                "result_field": "tour_mode",
-            },
-            "stop_frequency": {
-                "table": "tours",
-                "result_field": "stop_frequency",
-            },
-        },
-        "trip": {
-            "trip_departure_choice": {
-                "table": "trips",
-                "result_field": "depart",
-            },
-            "trip_purpose": {
-                "table": "trips",
-                "result_field": "purpose",
-            },
-            "trip_destination": {
-                "table": "trips",
-                "result_field": "destination",
-            },
-            "trip_mode": {
-                "table": "trips",
-                "result_field": "trip_mode",
-            },
-        },
-    }
-
-
-    def assemble_model_diagnostics(fields):
-        table_name = fields["table"]
-        base_lazy_df = base_outputs[table_name]
-        proj_lazy_df = proj_outputs[table_name]
-        filter_expr = fields.get("filter_expr")
-
-        if filter_expr is not None:
-            base_lazy_df = base_lazy_df.filter(filter_expr)
-            proj_lazy_df = proj_lazy_df.filter(filter_expr)
-
-        # Ensure result_field is always a list for iteration.
-        result_fields = fields["result_field"]
-        if not isinstance(result_fields, list):
-            result_fields = [result_fields]
-
-        diagnostics = [
-            generate_model_diagnostic(
-                base_lazy_df,
-                proj_lazy_df,
-                field,
-                FILTER_COLUMNS,
-            )
-            for field in result_fields
-        ]
-
-        # Return a single diagnostic if only one, or stack them otherwise.
-        return diagnostics[0] if len(diagnostics) == 1 else mo.vstack(diagnostics)
-
-
-    def check_exists(fields):
-        table_cols = base_outputs[fields["table"]].collect_schema().keys()
-        result_field = fields["result_field"]
-
-        if isinstance(result_field, str):
-            return result_field in table_cols
-
-        return all(item in table_cols for item in result_field)
-    return MODELS, assemble_model_diagnostics, check_exists
-
-
-@app.cell
-def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
-    household_person_choices = mo.accordion(
-        {
-            f"#### {key}": assemble_model_diagnostics(fields)
-            for key, fields in MODELS.get("household_person").items()
-            if check_exists(fields)
-        }
-    )
-
-    tour_choices = mo.accordion(
-        {
-            f"#### {key}": assemble_model_diagnostics(fields)
-            for key, fields in MODELS.get("tour").items()
-            if check_exists(fields)
-        }
-    )
-
-    trip_choices = mo.accordion(
-        {
-            f"#### {key}": assemble_model_diagnostics(fields)
-            for key, fields in MODELS.get("trip").items()
-            if check_exists(fields)
-        }
-    )
-
-
-    models_tab_ui = mo.vstack(
-        [
-            mo.accordion({"### Households/Persons": household_person_choices}),
-            mo.accordion({"### Tours": tour_choices}),
-            mo.accordion({"### Trips": trip_choices}),
-        ]
-    )
-    return household_person_choices, models_tab_ui, tour_choices, trip_choices
-
-
-@app.cell(hide_code=True)
-def column_filter_table(base_outputs, pl):
-    # Define tables to exclude
-    _exclude_tables = {"skims", "land_use"}
-
-    # Filter table names and create a list of DataFrames for each valid table
-    _dfs = [
-        pl.DataFrame({
-            "table": table_name,
-            "variable": base_outputs[table_name].collect_schema().keys(),
-        })
-        for table_name in base_outputs.keys() if table_name not in _exclude_tables
-    ]
-
-    # Concatenate all DataFrames and filter out rows where 'variable' ends with "_id"
-    all_columns_df = pl.concat(_dfs).filter(~pl.col("variable").str.ends_with("_id"))
-    return (all_columns_df,)
-
-
-@app.cell(hide_code=True)
-def _(all_columns_df, mo):
-    column_table = mo.ui.table(all_columns_df.to_pandas())
-    return (column_table,)
-
-
-@app.cell(hide_code=True)
-def _(column_table):
-    FILTER_COLUMNS = (
-        column_table.value["variable"].to_list()
-        if len(column_table.value["variable"]) > 0
-        else None
-    )
-    return (FILTER_COLUMNS,)
-
-
-@app.cell(hide_code=True)
-def _(folium):
-    def create_dualmap_leaflet(gdf):
-        # find centre of the shp file
-        center_y = gdf.geometry.centroid.y.mean()
-        center_x = gdf.geometry.centroid.x.mean()
-
-        # create a dualmap object
-        m = folium.plugins.DualMap(
-            location=(center_y, center_x), tiles=None, zoom_start=13
-        )
-
-        # create basemaps
-        folium.TileLayer("cartodbpositron").add_to(m.m1)
-        folium.TileLayer("cartodbpositron").add_to(m.m2)
-
-        # add polygons
-        gdf[["zone_id", "employment_density", "geometry"]].explore(
-            m=m.m1, column="employment_density"
-        )
-        gdf[["zone_id", "household_density", "geometry"]].explore(
-            m=m.m2, column="household_density"
-        )
-
-        # add options
-        folium.LayerControl(collapsed=False).add_to(m)
-
-        return m
-
-
-    # overview_dualmap = create_dualmap_leaflet(base_outputs["land_use"])
-    return (create_dualmap_leaflet,)
-
-
-@app.cell(hide_code=True)
-def _(Dict, List, Optional, Union, pl, px, scenario_discrete_color_map):
-    def compare_distributions(
-        base: Dict,
-        proj: Dict,
-        table: str,
-        variable: Optional[Union[str, List[str]]] = None,
-    ) -> px.fig:
-        """
-        Compare the distributions of specified variable(s) in two Lazy Polars DataFrames using Altair histograms.
-
-        The function collects the LazyFrames, adds a 'source' column to distinguish the datasets,
-        and reshapes the combined data into a long format without converting to Pandas.
-        The resulting data is passed to Altair as a list of dictionaries.
-        """
-
-        # Add a 'source' column to each DataFrame.
-        df1 = base[table].with_columns(pl.lit("Base").alias("source"))
-        df2 = proj[table].with_columns(pl.lit("Project").alias("source"))
-
-        # Combine the two DataFrames.
-        combined = pl.concat([df1, df2])
-
-        # Determine which columns to include. Exclude the 'source' column.
-        if variable is None:
-            value_vars = [
-                col for col in combined.collect_schema().columns if col != "source"
-            ]
-        elif isinstance(variable, str):
-            value_vars = [variable]
-        else:
-            value_vars = variable
-
-        unique_count = (
-            combined.select(pl.col(variable).n_unique()).collect().item()
-        )
-
-        plot_title = variable.upper()
-
-        if unique_count > 50:
-            fig = px.histogram(
-                combined.select(pl.col("source", variable)).collect(),
-                x=variable,
-                color="source",
-                barmode="overlay",
-                title=f"{plot_title} Histogram",
-                nbins=50,  # Adjust the number of bins as needed.
-            )
-        else:
-            agg_data = (
-                combined.group_by("source", variable)
-                .len()
-                .with_columns(
-                    pl.col(variable).cast(pl.String).alias("_variable_string")
-                )
-                .sort("_variable_string")
-                .collect()
-            )
-            fig = px.bar(
-                agg_data,
-                x=variable,
-                y="len",
-                color="source",
-                barmode="group",
-                title=plot_title,
-                color_discrete_map=scenario_discrete_color_map,
-                text_auto=".3s",
-            )
-
-        fig.update_layout(
-            yaxis_title="Count",
-            xaxis_title=None,
-            legend_title_text=None,
-            showlegend=False,
-        )
-
-        return fig
-    return (compare_distributions,)
-
-
-@app.cell
 def read_input_parquets(base_dir, os, pl, proj_dir):
     _asim_output_names = {
         "persons": "final_persons.parquet",
@@ -633,6 +222,21 @@ def read_input_parquets(base_dir, os, pl, proj_dir):
     #     proj_outputs["land_use"].collect().to_pandas(), on="zone_id"
     # )
     return base_outputs, lazy_read_asim_outputs, proj_outputs
+
+
+@app.cell
+def ui_overview(mo):
+    mo.hstack(
+        [mo.md(rf"""# {mo.icon("lucide:chart-bar-big")} Overview""")],
+        justify="start",
+    )
+    return
+
+
+@app.cell
+def _(summary_cards):
+    summary_cards
+    return
 
 
 @app.cell
@@ -790,6 +394,291 @@ def _(Any, Dict, Optional, PARAMS, base_outputs, mo, pl, proj_outputs):
 
 
 @app.cell
+def _(mo):
+    mo.md(r"""--------""")
+    return
+
+
+@app.cell
+def ui_models(mo):
+    mo.hstack(
+        [mo.md(rf"""# {mo.icon("lucide:square-chevron-right")} Models""")],
+        justify="start",
+    )
+    return
+
+
+@app.cell
+def _(column_table, mo):
+    mo.accordion(
+        {
+            "#### 👀 Model structure": mo.hstack(
+                [
+                    mo.image(
+                        "https://rsginc.com/wp-content/uploads/2021/01/Example-Activity-Based-Model-and-Submodel-Structure-2048x1907.png",
+                        width=500,
+                        caption="ActivitySim model structure",
+                    )
+                ],
+                justify="center",
+            ),
+            "#### 🔎 Select a variable from the table to group by": column_table,
+        }
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def ui_model_tabs(models_tab_ui):
+    models_tab_ui
+    return
+
+
+@app.cell(hide_code=True)
+def column_filter_table(base_outputs, mo, pl):
+    # Define tables to exclude
+    _exclude_tables = {"skims", "land_use"}
+
+    # Filter table names and create a list of DataFrames for each valid table
+    _dfs = [
+        pl.DataFrame(
+            {
+                "table": table_name,
+                "variable": base_outputs[table_name].collect_schema().keys(),
+            }
+        )
+        for table_name in base_outputs.keys()
+        if table_name not in _exclude_tables
+    ]
+
+    # Concatenate all DataFrames and filter out rows where 'variable' ends with "_id"
+    all_columns_df = pl.concat(_dfs).filter(
+        ~pl.col("variable").str.ends_with("_id")
+    )
+
+    column_table = mo.ui.table(all_columns_df.to_pandas())
+    return all_columns_df, column_table
+
+
+@app.cell
+def _(column_table):
+    FILTER_COLUMNS = (
+        column_table.value["variable"].to_list()
+        if len(column_table.value["variable"]) > 0
+        else None
+    )
+    return (FILTER_COLUMNS,)
+
+
+@app.cell
+def _(pl):
+    MODELS = {
+        "household_person": {
+            "auto_ownership": {
+                "table": "households",
+                "result_field": "auto_ownership",
+            },
+            "work_from_home": {
+                "table": "persons",
+                "result_field": "work_from_home",
+            },
+            "free_parking_at_work": {
+                "table": "persons",
+                "result_field": "free_parking_at_work",
+            },
+            "school_location": {
+                "table": "persons",
+                "result_field": "school_zone_id",
+            },
+            "work_location": {
+                "table": "persons",
+                "result_field": "workplace_zone_id",
+            },
+            "business_location": {
+                "table": "persons",
+                "result_field": "business_zone_id",
+            },
+            "telecommute_frequency": {
+                "table": "persons",
+                "result_field": "telecommute_frequency",
+            },
+            "transit_pass_ownership": {
+                "table": "persons",
+                "result_field": "transit_pass_ownership",
+            },
+            "transit_pass_subsidy": {
+                "table": "persons",
+                "result_field": "transit_pass_subsidy",
+            },
+            "cdap_simulate": {"table": "persons", "result_field": "cdap_activity"},
+        },
+        "tour": {
+            "mandatory_tour_frequency": {
+                "table": "persons",
+                "result_field": "mandatory_tour_frequency",
+                "filter_expr": pl.col("mandatory_tour_frequency") != "",
+            },
+            "mandatory_tour_scheduling": {
+                "table": "tours",
+                "result_field": ["start", "end", "duration"],
+                "filter_expr": pl.col("tour_category") == "mandatory",
+            },
+            "joint_tour_composition": {
+                "table": "tours",
+                "result_field": "composition",
+                "filter_expr": pl.col("composition") != "",
+            },
+            "joint_tour_participation": {
+                "table": "tours",
+                "result_field": "number_of_participants",
+            },
+            "joint_tour_scheduling": {
+                "table": "tours",
+                "result_field": ["start", "end", "duration"],
+                "filter_expr": pl.col("tour_category") == "joint",
+            },
+            "non_mandatory_tour_frequency": {
+                "table": "persons",
+                "result_field": "non_mandatory_tour_frequency",
+                "filter_expr": pl.col("non_mandatory_tour_frequency") != 0,
+            },
+            "non_mandatory_tour_scheduling": {
+                "table": "tours",
+                "result_field": ["start", "end", "duration"],
+                "filter_expr": pl.col("tour_category") == "non_mandatory",
+            },
+            "atwork_subtour_frequency": {
+                "table": "persons",
+                "result_field": "atwork_subtour_frequency",
+                "filter_expr": pl.col("atwork_subtour_frequency") != "",
+            },
+            "atwork_subtour_scheduling": {
+                "table": "tours",
+                "result_field": ["start", "end", "duration"],
+                "filter_expr": pl.col("tour_category") == "atwork",
+            },
+            "atwork_subtour_mode_choice": {
+                "table": "tours",
+                "result_field": "tour_mode",
+                "filter_expr": pl.col("tour_category") == "atwork",
+            },
+            "tour_mode_choice_simulate": {
+                "table": "tours",
+                "result_field": "tour_mode",
+            },
+            "stop_frequency": {
+                "table": "tours",
+                "result_field": "stop_frequency",
+            },
+        },
+        "trip": {
+            "trip_departure_choice": {
+                "table": "trips",
+                "result_field": "depart",
+            },
+            "trip_purpose": {
+                "table": "trips",
+                "result_field": "purpose",
+            },
+            "trip_destination": {
+                "table": "trips",
+                "result_field": "destination",
+            },
+            "trip_mode": {
+                "table": "trips",
+                "result_field": "trip_mode",
+            },
+        },
+    }
+    return (MODELS,)
+
+
+@app.cell
+def _(
+    FILTER_COLUMNS,
+    base_outputs,
+    generate_model_diagnostic,
+    mo,
+    proj_outputs,
+):
+    def assemble_model_diagnostics(fields):
+        table_name = fields["table"]
+        base_lazy_df = base_outputs[table_name]
+        proj_lazy_df = proj_outputs[table_name]
+        filter_expr = fields.get("filter_expr")
+
+        if filter_expr is not None:
+            base_lazy_df = base_lazy_df.filter(filter_expr)
+            proj_lazy_df = proj_lazy_df.filter(filter_expr)
+
+        # Ensure result_field is always a list for iteration.
+        result_fields = fields["result_field"]
+        if not isinstance(result_fields, list):
+            result_fields = [result_fields]
+
+        diagnostics = [
+            generate_model_diagnostic(
+                base_lazy_df,
+                proj_lazy_df,
+                field,
+                FILTER_COLUMNS,
+            )
+            for field in result_fields
+        ]
+
+        # Return a single diagnostic if only one, or stack them otherwise.
+        return diagnostics[0] if len(diagnostics) == 1 else mo.vstack(diagnostics)
+
+
+    def check_exists(fields):
+        table_cols = base_outputs[fields["table"]].collect_schema().keys()
+        result_field = fields["result_field"]
+
+        if isinstance(result_field, str):
+            return result_field in table_cols
+
+        return all(item in table_cols for item in result_field)
+    return assemble_model_diagnostics, check_exists
+
+
+@app.cell
+def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
+    household_person_choices = mo.accordion(
+        {
+            f"#### {key}": assemble_model_diagnostics(fields)
+            for key, fields in MODELS.get("household_person").items()
+            if check_exists(fields)
+        }
+    )
+
+    tour_choices = mo.accordion(
+        {
+            f"#### {key}": assemble_model_diagnostics(fields)
+            for key, fields in MODELS.get("tour").items()
+            if check_exists(fields)
+        }
+    )
+
+    trip_choices = mo.accordion(
+        {
+            f"#### {key}": assemble_model_diagnostics(fields)
+            for key, fields in MODELS.get("trip").items()
+            if check_exists(fields)
+        }
+    )
+
+
+    models_tab_ui = mo.vstack(
+        [
+            mo.accordion({"### Households/Persons": household_person_choices}),
+            mo.accordion({"### Tours": tour_choices}),
+            mo.accordion({"### Trips": trip_choices}),
+        ]
+    )
+    return household_person_choices, models_tab_ui, tour_choices, trip_choices
+
+
+@app.cell
 def generate_model_diagnostic(
     GT,
     List,
@@ -807,38 +696,83 @@ def generate_model_diagnostic(
     @mo.persistent_cache
     def generate_model_diagnostic(
         base: pl.LazyFrame,
-        proj: pl.LazyFrame,
+        proj: Optional[pl.LazyFrame],
         variable: str,
         by_columns: Optional[List[str]] = None,
     ):
         """
-        Generate diagnostic visuals and table comparing aggregated Base and Project scenarios.
+        Generate diagnostic visuals and a table comparing aggregated Base and Project scenarios.
 
         Parameters:
             base (pl.LazyFrame): The base scenario data.
-            proj (pl.LazyFrame): The project scenario data.
+            proj (pl.LazyFrame): The project scenario data (can be None).
             variable (str): Primary variable to aggregate by.
             by_columns (Optional[List[str]]): Additional grouping columns.
 
         Returns:
             A vertically stacked object combining plotly tabs and a formatted table.
         """
-
+        # Process the outcome variable
         variable = get_model_outcome(variable)
 
-        def _compute_agg_by(
+        # Determine grouping columns that exist in the base schema
+        base_schema = base.collect_schema().keys()
+        grouping_columns = (
+            [col for col in by_columns if col in base_schema] if by_columns else []
+        )
+        agg_cols = [variable] + grouping_columns
+
+        def compute_aggregate(
             lazy_df: pl.LazyFrame, group_cols: List[str]
         ) -> pl.DataFrame:
+            """Aggregate the LazyFrame by the provided group columns."""
             return (
                 lazy_df.group_by(group_cols)
                 .agg(len=pl.len().cast(pl.Int64))
                 .collect()
             )
 
-        def _gen_great_table(tab_df: pl.DataFrame):
-            # rmse, srmse, avg pct error
-            metrics = tab_df.select(
-                rmse=((pl.col("len_Project") - pl.col("len_Base")) ^ 2)
+        # Compute aggregated data for the Base scenario
+        base_agg = compute_aggregate(base, agg_cols).with_columns(
+            scenario=pl.lit("Base")
+        )
+        # Compute aggregated data for the Project scenario if available
+        if proj is not None:
+            proj_agg = compute_aggregate(proj, agg_cols).with_columns(
+                scenario=pl.lit("Project")
+            )
+            agg_df = pl.concat([base_agg, proj_agg], how="vertical")
+        else:
+            agg_df = base_agg
+
+        # Calculate the share column within each scenario
+        agg_df = agg_df.with_columns(
+            share=pl.col("len") / pl.col("len").sum().over("scenario")
+        )
+
+        # Pivot the data to compare Base and Project counts side by side
+        agg_df_pivoted = (
+            agg_df.pivot(
+                index=agg_cols,
+                on="scenario",
+                values=["len"],
+                aggregate_function="sum",
+            )
+            .with_columns(
+                share_Base=pl.col("Base") / pl.col("Base").sum(),
+                share_Project=pl.col("Project") / pl.col("Project").sum(),
+                diff=pl.col("Project") - pl.col("Base"),
+            )
+            .with_columns(pct_diff=pl.col("diff") / pl.col("Base"))
+            .rename({"Base": "len_Base", "Project": "len_Project"})
+            .sort(agg_cols)
+        )
+
+        def generate_formatted_table(df: pl.DataFrame):
+            """Generate a formatted table with RMSE and MAPE metrics."""
+            # Compute metrics: RMSE and MAPE
+            metrics = df.select(
+                rmse=((pl.col("len_Project") - pl.col("len_Base")) ** 2)
                 .mean()
                 .sqrt()
                 .round(2),
@@ -850,12 +784,12 @@ def generate_model_diagnostic(
                     * 100
                 ).round(1),
             )
-
             rmse = metrics["rmse"].item()
             mape = metrics["mape"].item()
 
+            # Build the formatted table using GT (assumed external)
             return (
-                GT(tab_df)
+                GT(df)
                 .tab_header(title=f"RMSE: {rmse}, MAPE: {mape}%")
                 .tab_spanner(
                     label=md("**Share (%)**"), columns=cs.starts_with("share_")
@@ -891,7 +825,8 @@ def generate_model_diagnostic(
                 )
             )
 
-        def _gen_fig(col: str):
+        def generate_figure(col: str):
+            """Generate a Plotly bar chart for the specified column ('share' or 'len')."""
             if col == "share":
                 labels = {"share": "Percentage (%)"}
                 text_auto = ".2%"
@@ -906,7 +841,7 @@ def generate_model_diagnostic(
                 x=variable,
                 y=col,
                 color="scenario",
-                facet_col=existed_by_columns[0] if existed_by_columns else None,
+                facet_col=grouping_columns[0] if grouping_columns else None,
                 barmode="group",
                 color_discrete_map=scenario_discrete_color_map,
                 labels=labels,
@@ -926,16 +861,16 @@ def generate_model_diagnostic(
             if col == "share":
                 fig.update_layout(yaxis=dict(tickformat=".0%"))
 
-            # Remove individual x-axis titles from all facets
+            # Remove x-axis titles from all facets
             fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
 
-            # Add a global x-axis label as an annotation (position may need adjustment)
+            # Add a global x-axis label as an annotation
             fig.add_annotation(
                 text=variable,
                 xref="paper",
                 yref="paper",
                 x=0.5,
-                y=-0.1,  # x centered; y=0 aligns with the bottom of the figure
+                y=-0.1,
                 showarrow=False,
                 font=dict(size=14),
                 xanchor="center",
@@ -943,56 +878,14 @@ def generate_model_diagnostic(
             )
             return fig
 
-        # Filter the grouping columns to those that exist in 'base'
-        existed_by_columns = (
-            [col for col in by_columns if col in base.collect_schema().keys()]
-            if by_columns
-            else None
+        # Generate visuals: create tabs for Share and Count figures and format the table
+        tabs = mo.ui.tabs(
+            {"Share": generate_figure("share"), "Count": generate_figure("len")}
         )
-        agg_cols = [variable] + (existed_by_columns if existed_by_columns else [])
+        formatted_table = generate_formatted_table(agg_df_pivoted)
 
-        # Compute aggregated data for Base and Project scenarios
-        base_agg = _compute_agg_by(base, agg_cols).with_columns(
-            scenario=pl.lit("Base")
-        )
-        if proj is not None:
-            proj_agg = _compute_agg_by(proj, agg_cols).with_columns(
-                scenario=pl.lit("Project")
-            )
-            agg_df = pl.concat([base_agg, proj_agg], how="vertical")
-        else:
-            agg_df = base_agg
-
-        # Add share column (grouped by scenario)
-        agg_df = agg_df.with_columns(
-            share=pl.col("len") / pl.col("len").sum().over("scenario")
-        )
-
-        # Pivot data to compare Base and Project counts side by side
-        agg_df_pivoted = (
-            agg_df.pivot(
-                index=agg_cols,
-                on="scenario",
-                values=["len"],
-                aggregate_function="sum",
-            )
-            .with_columns(
-                share_Base=pl.col("Base") / pl.col("Base").sum(),
-                share_Project=pl.col("Project") / pl.col("Project").sum(),
-                diff=pl.col("Project") - pl.col("Base"),
-            )
-            .with_columns(pct_diff=pl.col("diff") / pl.col("Base"))
-            .rename({"Base": "len_Base", "Project": "len_Project"})
-            .sort(agg_cols)
-        )
-
-        # Combine tabs and table using mo.vstack and mo.ui.tabs (assumed external modules)
-        return mo.vstack(
-            [
-                mo.ui.tabs({"Share": _gen_fig("share"), "Count": _gen_fig("len")}),
-                _gen_great_table(agg_df_pivoted),
-            ]
-        )
+        # Combine visuals and table in a vertical stack layout
+        return mo.vstack([tabs, formatted_table])
     return (generate_model_diagnostic,)
 
 
@@ -1371,6 +1264,120 @@ def ui_profiling(mo):
         ]
     )
     return
+
+
+@app.cell(hide_code=True)
+def _(folium):
+    def create_dualmap_leaflet(gdf):
+        # find centre of the shp file
+        center_y = gdf.geometry.centroid.y.mean()
+        center_x = gdf.geometry.centroid.x.mean()
+
+        # create a dualmap object
+        m = folium.plugins.DualMap(
+            location=(center_y, center_x), tiles=None, zoom_start=13
+        )
+
+        # create basemaps
+        folium.TileLayer("cartodbpositron").add_to(m.m1)
+        folium.TileLayer("cartodbpositron").add_to(m.m2)
+
+        # add polygons
+        gdf[["zone_id", "employment_density", "geometry"]].explore(
+            m=m.m1, column="employment_density"
+        )
+        gdf[["zone_id", "household_density", "geometry"]].explore(
+            m=m.m2, column="household_density"
+        )
+
+        # add options
+        folium.LayerControl(collapsed=False).add_to(m)
+
+        return m
+
+
+    # overview_dualmap = create_dualmap_leaflet(base_outputs["land_use"])
+    return (create_dualmap_leaflet,)
+
+
+@app.cell(hide_code=True)
+def _(Dict, List, Optional, Union, pl, px, scenario_discrete_color_map):
+    def compare_distributions(
+        base: Dict,
+        proj: Dict,
+        table: str,
+        variable: Optional[Union[str, List[str]]] = None,
+    ) -> px.fig:
+        """
+        Compare the distributions of specified variable(s) in two Lazy Polars DataFrames using Altair histograms.
+
+        The function collects the LazyFrames, adds a 'source' column to distinguish the datasets,
+        and reshapes the combined data into a long format without converting to Pandas.
+        The resulting data is passed to Altair as a list of dictionaries.
+        """
+
+        # Add a 'source' column to each DataFrame.
+        df1 = base[table].with_columns(pl.lit("Base").alias("source"))
+        df2 = proj[table].with_columns(pl.lit("Project").alias("source"))
+
+        # Combine the two DataFrames.
+        combined = pl.concat([df1, df2])
+
+        # Determine which columns to include. Exclude the 'source' column.
+        if variable is None:
+            value_vars = [
+                col for col in combined.collect_schema().columns if col != "source"
+            ]
+        elif isinstance(variable, str):
+            value_vars = [variable]
+        else:
+            value_vars = variable
+
+        unique_count = (
+            combined.select(pl.col(variable).n_unique()).collect().item()
+        )
+
+        plot_title = variable.upper()
+
+        if unique_count > 50:
+            fig = px.histogram(
+                combined.select(pl.col("source", variable)).collect(),
+                x=variable,
+                color="source",
+                barmode="overlay",
+                title=f"{plot_title} Histogram",
+                nbins=50,  # Adjust the number of bins as needed.
+            )
+        else:
+            agg_data = (
+                combined.group_by("source", variable)
+                .len()
+                .with_columns(
+                    pl.col(variable).cast(pl.String).alias("_variable_string")
+                )
+                .sort("_variable_string")
+                .collect()
+            )
+            fig = px.bar(
+                agg_data,
+                x=variable,
+                y="len",
+                color="source",
+                barmode="group",
+                title=plot_title,
+                color_discrete_map=scenario_discrete_color_map,
+                text_auto=".3s",
+            )
+
+        fig.update_layout(
+            yaxis_title="Count",
+            xaxis_title=None,
+            legend_title_text=None,
+            showlegend=False,
+        )
+
+        return fig
+    return (compare_distributions,)
 
 
 if __name__ == "__main__":
