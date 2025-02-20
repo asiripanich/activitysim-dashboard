@@ -6,6 +6,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+      
 
 jobs:
   test-latest-linux:
@@ -13,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🛑 Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
-
       - uses: actions/checkout@v4
     
       - name: ⬇️ Install Hatch
