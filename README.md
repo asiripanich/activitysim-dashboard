@@ -1,8 +1,8 @@
-# ActivitySim dashboard
-
-![](images/banner.png)
-
+# ActivitySim dashboard 
 [![ci](https://github.com/asiripanich/activitysim-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/asiripanich/activitysim-dashboard/actions/workflows/ci.yml)
+
+
+<img src="https://github.com/user-attachments/assets/09a1ef48-d946-4b85-bd8d-fa94a625fb3f" width="500" alt="asim-dashboard">
 
 ## Get started
 
