@@ -2,6 +2,8 @@
 
 ![](images/banner.png)
 
+[![ci](https://github.com/asiripanich/activitysim-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/asiripanich/activitysim-dashboard/actions/workflows/ci.yml)
+
 ## Get started
 
 
