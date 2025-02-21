@@ -9,6 +9,8 @@ A high-performance, memory-efficient, reproducible, and extensible ActivitySim d
 
 ## Get started
 
+### `dashboard.py`
+
 To get started, you only need to install two Python packages: 
 
 - [uv](https://docs.astral.sh/uv/): "*A Python package and project manager*"
@@ -29,3 +31,7 @@ uvx marimo run --sandbox dashboard.py
 # using an environment e.g., Conda or Python virtual environment
 marimo edit --sandbox dashboard.py
 ```
+
+### `input_converter.py`
+
+This is another Marimo notebook that helps convert CSV and OMX files to the Parquet format, enabling you to create compatible inputs for `dashboard.py`. This is particularly useful if you want to use the dashboard with ActivitySim final outputs provided in CSV format.
