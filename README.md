@@ -1,6 +1,7 @@
 # ActivitySim dashboard 
 [![ci](https://github.com/asiripanich/activitysim-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/asiripanich/activitysim-dashboard/actions/workflows/ci.yml)
-
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-yellow.svg)](https://www.tidyverse.org/lifecycle/#experimental)
 <p align="center">
 <img src="https://github.com/user-attachments/assets/09a1ef48-d946-4b85-bd8d-fa94a625fb3f" width="500" alt="asim-dashboard">
 </p>
