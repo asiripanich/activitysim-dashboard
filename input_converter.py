@@ -164,19 +164,25 @@ def _(
     output_directory_exists,
 ):
     _msgs = []
-    if output_directory_exists & len(input_file_infos) > 0:
-        for input_file_info in input_file_infos:
+    if output_directory_exists and len(input_file_infos) > 0:
+        for input_file_info in mo.status.progress_bar(
+            input_file_infos,
+            title="🐣 Converting",
+            subtitle="Please wait",
+            show_eta=False,
+            show_rate=False,
+        ):
             _msgs.append(
                 convert_input(input_file_info, output_directory=output_directory)
             )
-        _ui_callout = mo.callout(
-            mo.vstack(
-                [mo.md(_msg) for _msg in ["## ✅ Converted:"] + _msgs],
-                gap=0,
-                justify="end",
-            ),
-            kind="success",
-        )
+            _ui_callout = mo.callout(
+                mo.vstack(
+                    [mo.md(_msg) for _msg in ["## ✅ Converted:"] + _msgs],
+                    gap=0,
+                    justify="end",
+                ),
+                kind="success",
+            )
     elif len(input_file_infos) == 0:
         _ui_callout = mo.callout(
             mo.md(
