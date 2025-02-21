@@ -258,26 +258,26 @@ def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
         total_tours = outputs["tours"].pipe(_total_rows)
 
         return {
-            "🧍 total_persons": total_persons,
-            "🏠 total_households": total_households,
-            "👩🏻‍🤝‍👨🏾 average_household_size": total_persons / total_households,
-            "➡️ total_trips": total_trips,
-            "🔁 total_tours": total_tours,
-            "🧍➡️ person_trips": total_trips / total_persons,
-            "🧍🔁 person_tours": total_tours / total_persons,
-            "☕️ remote_workers": outputs["persons"].pipe(
+            "total_persons": total_persons,
+            "total_households": total_households,
+            "average_household_size": total_persons / total_households,
+            "total_trips": total_trips,
+            "total_tours": total_tours,
+            "person_trips": total_trips / total_persons,
+            "person_tours": total_tours / total_persons,
+            "remote_workers": outputs["persons"].pipe(
                 _total_binary_variable,
                 MODELS["household_person"]
                 .get("work_from_home")
                 .get("result_field"),
             ),
-            "💼🚗 free_parking_at_work": outputs["persons"].pipe(
+            "free_parking_at_work": outputs["persons"].pipe(
                 _total_binary_variable,
                 MODELS["household_person"]
                 .get("free_parking_at_work")
                 .get("result_field"),
             ),
-            "0️⃣🚗 zero-car_households": outputs["households"].pipe(
+            "zero-car_households": outputs["households"].pipe(
                 _total_categorical_variable,
                 MODELS["household_person"]
                 .get("auto_ownership")

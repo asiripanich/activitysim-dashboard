@@ -14,8 +14,8 @@ concurrency:
     cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  test:
-    name: Test
+  ci:
+    name: Run marimo notebooks
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -30,3 +30,6 @@ jobs:
 
       - name: run dashboard
         run: hatch run dashboard.py
+
+      - name: run input_converter
+        run: hatch run input_converter.py
