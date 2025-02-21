@@ -1,0 +1,22 @@
+# .github/release.yml
+
+changelog:
+    exclude:
+      labels: ["skip-changelog"]
+    categories:
+      - title: 🛠 Breaking Changes
+        labels: ["breaking-change"]
+      - title: 🚀 New Features and Enhancements
+        labels: ["feature", "enhancement"]
+      - title: 💎 Input changes
+        labels: ["dvc", "input"]
+      - title: ⚡ Optimisations
+        labels: ["optimise", "performance"]
+      - title: 🐛 Bug Fixes
+        labels: ["bugfix", "bug"]
+      - title: 🔨 Maintenance
+        labels: ["maintenance", "refactoring", "chore", "build", "ci"]
+      - title: 📖 Documentation
+        labels: ["documentation"]
+      - title: Other Changes
+        labels: ["*"]
