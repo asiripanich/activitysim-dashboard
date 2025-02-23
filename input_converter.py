@@ -12,7 +12,7 @@
 
 import marimo
 
-__generated_with = "0.11.7"
+__generated_with = "0.11.8"
 app = marimo.App(width="medium", app_title="Input Converter")
 
 
@@ -85,7 +85,7 @@ def _(Path, convert_omx, os, pl, pq):
             table = pl.read_csv(input_path)
             table.write_parquet(output_path)
         elif ".omx":
-            table = convert_omx(input_path, output_path)
+            table = convert_omx(input_path)
             pq.write_table(
                 table, output_path, compression="ZSTD", compression_level=4
             )
