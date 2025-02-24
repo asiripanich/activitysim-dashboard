@@ -16,7 +16,7 @@ __generated_with = "0.11.8"
 app = marimo.App(width="medium", app_title="Input Converter")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     import os
@@ -30,31 +30,80 @@ def _():
     return Path, itertools, mo, np, omx, os, pa, pl, pq
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""# Convert CSV and OMX files to the Parquet format""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
+    ui_initial_path = (
+        mo.md("""
+        {initial_path}
+        """)
+        .batch(
+            initial_path=mo.ui.text(
+                value=str(mo.notebook_location()),
+                full_width=True,
+                label="### **Input directory**",
+            )
+        )
+        .form()
+    )
+    return (ui_initial_path,)
+
+
+@app.cell(hide_code=True)
+def _(ui_initial_path):
+    ui_initial_path
+    return
+
+
+@app.cell(hide_code=True)
+def _(Path, initial_path, mo):
+    if not Path(initial_path).is_dir():
+        input_path_check =  mo.callout(mo.md("""
+           ## \N{CROSS MARK} The input directory does not exists! Please fix and click submit again.
+        """), kind="danger")
+    else: 
+        input_path_check = None
+    input_path_check
+    return (input_path_check,)
+
+
+@app.cell(hide_code=True)
+def _(mo, ui_initial_path):
+    initial_path = (
+        str(ui_initial_path.value.get("initial_path"))
+        if ui_initial_path.value is not None
+        else mo.notebook_location()
+    )
+    return (initial_path,)
+
+
+@app.cell(hide_code=True)
+def _(initial_path, input_path_check, mo):
+    input_path_check
     ui_file_selector = (
         mo.md("""
+    **Folders and compatible input files in the input directory**:
     {input_files}
 
-    **output directory**: {output_directory}
+    ### **output directory**: 
+    {output_directory}
 
     {overwrite_output}
     """)
         .batch(
             input_files=mo.ui.file_browser(
-                initial_path=r"./",
+                initial_path=initial_path,
                 multiple=True,
                 filetypes=[".csv", ".omx"],
             ),
-            output_directory=mo.ui.text(""),
+            output_directory=mo.ui.text("", full_width=True),
             overwrite_output=mo.ui.checkbox(
-                label="Overwrite files in the output directory"
+                label="#### Overwrite files in the output directory"
             ),
         )
         .form()
@@ -62,7 +111,7 @@ def _(mo):
     return (ui_file_selector,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(ui_file_selector):
     ui_file_selector
     return
@@ -79,7 +128,7 @@ def _(Path, convert_omx, os, pl, pq):
         )
 
         if Path(output_path).exists() and overwrite_output is not True:
-            return f"\N{cross mark} **{input_file_info.name}** already exists **{output_path}**"
+            return f"\N{CROSS MARK} **{input_file_info.name}** already exists **{output_path}**"
 
         if input_file_extension == ".csv":
             table = pl.read_csv(input_path)
@@ -92,7 +141,7 @@ def _(Path, convert_omx, os, pl, pq):
         else:
             raise f"Doesn't know how to convert {input_file_extension} :("
 
-        return f"\N{front-facing baby chick} **{input_file_info.name}** -> **{output_path}**"
+        return f"\N{FRONT-FACING BABY CHICK} **{input_file_info.name}** -> **{output_path}**"
     return (convert_input,)
 
 
@@ -172,7 +221,7 @@ def _(Path, ui_file_selector):
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     convert_input,
     input_file_infos,
@@ -192,7 +241,7 @@ def _(
         elif output_directory_exists and len(input_file_infos) > 0:
             for input_file_info in mo.status.progress_bar(
                 input_file_infos,
-                title="\N{hatching chick} Converting",
+                title="\N{HATCHING CHICK} Converting",
                 subtitle="Please wait",
                 show_eta=False,
                 show_rate=False,
@@ -207,7 +256,10 @@ def _(
                 )
                 _ui_callout = mo.callout(
                     mo.vstack(
-                        [mo.md(_msg) for _msg in ["##  \N{orange heart} Converted:"] + _msgs],
+                        [
+                            mo.md(_msg)
+                            for _msg in ["##  \N{ORANGE HEART} Converted:"] + _msgs
+                        ],
                         gap=0,
                         justify="end",
                     ),
@@ -216,20 +268,20 @@ def _(
         elif len(input_file_infos) == 0:
             _ui_callout = mo.callout(
                 mo.md(
-                    f"##  \N{raised hand} Please select the files you would like to convert to Parquet and click the 'Submit' button."
+                    f"##  \N{RAISED HAND} Please select the files you would like to convert to Parquet and click the 'Submit' button."
                 ),
                 kind="warn",
             )
         else:
             _ui_callout = mo.callout(
                 mo.md(
-                    f"## \N{cross mark} The output directory (**{output_directory}**) doesn't exist! Click the 'Submit' button to try again."
+                    f"## \N{CROSS MARK} The output directory (**{output_directory}**) doesn't exist! Click the 'Submit' button to try again."
                 ),
                 kind="danger",
             )
     except Exception as e:
         _ui_callout = mo.callout(
-            mo.md(f"""## \N{cross mark} Error in converting `{input_file_info.name}`! 
+            mo.md(f"""## \N{CROSS MARK} Error in converting `{input_file_info.name}`! 
 
                 **Python error message**:
 
