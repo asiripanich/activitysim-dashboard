@@ -13,7 +13,7 @@
 import marimo
 
 __generated_with = "0.11.7"
-app = marimo.App(width="medium", app_title="ActivitySim dashboard")
+app = marimo.App(width="full", app_title="ActivitySim dashboard")
 
 
 @app.cell(hide_code=True)
