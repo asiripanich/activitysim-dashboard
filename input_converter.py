@@ -2,6 +2,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "duckdb==1.2.0",
+#     "geopandas==1.0.1",
 #     "marimo[sql]",
 #     "numpy==2.2.3",
 #     "openmatrix==0.3.5.0",
@@ -27,12 +28,13 @@ def _():
     import openmatrix as omx
     import pyarrow as pa
     import pyarrow.parquet as pq
-    return Path, itertools, mo, np, omx, os, pa, pl, pq
+    import geopandas as gpd
+    return Path, gpd, itertools, mo, np, omx, os, pa, pl, pq
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""# Convert CSV and OMX files to the Parquet format""")
+    mo.md(r"""# Convert CSV, SHP, GeoJSON, and OMX files to Parquet format""")
     return
 
 
@@ -63,10 +65,13 @@ def _(ui_initial_path):
 @app.cell(hide_code=True)
 def _(Path, initial_path, mo):
     if not Path(initial_path).is_dir():
-        input_path_check =  mo.callout(mo.md("""
+        input_path_check = mo.callout(
+            mo.md("""
            ## \N{CROSS MARK} The input directory does not exists! Please fix and click submit again.
-        """), kind="danger")
-    else: 
+        """),
+            kind="danger",
+        )
+    else:
         input_path_check = None
     input_path_check
     return (input_path_check,)
@@ -83,7 +88,7 @@ def _(mo, ui_initial_path):
 
 
 @app.cell(hide_code=True)
-def _(initial_path, input_path_check, mo):
+def ui_file_selector(initial_path, input_path_check, mo):
     input_path_check
     ui_file_selector = (
         mo.md("""
@@ -99,7 +104,7 @@ def _(initial_path, input_path_check, mo):
             input_files=mo.ui.file_browser(
                 initial_path=initial_path,
                 multiple=True,
-                filetypes=[".csv", ".omx"],
+                filetypes=[".csv", ".shp", ".geojson", ".omx"],
             ),
             output_directory=mo.ui.text("", full_width=True),
             overwrite_output=mo.ui.checkbox(
@@ -118,7 +123,7 @@ def _(ui_file_selector):
 
 
 @app.cell(hide_code=True)
-def _(Path, convert_omx, os, pl, pq):
+def _(Path, convert_omx, convert_shp, os, pl, pq):
     def convert_input(input_file_info, output_directory, overwrite_output):
         input_file_extension = os.path.splitext(input_file_info.path)[1]
         input_path = input_file_info.path
@@ -133,7 +138,9 @@ def _(Path, convert_omx, os, pl, pq):
         if input_file_extension == ".csv":
             table = pl.read_csv(input_path)
             table.write_parquet(output_path)
-        elif ".omx":
+        elif input_file_extension in [".shp", ".geojson"]:
+            convert_shp(input_path, output_path)
+        elif input_file_extension == ".omx":
             table = convert_omx(input_path)
             pq.write_table(
                 table, output_path, compression="ZSTD", compression_level=4
@@ -143,6 +150,14 @@ def _(Path, convert_omx, os, pl, pq):
 
         return f"\N{FRONT-FACING BABY CHICK} **{input_file_info.name}** -> **{output_path}**"
     return (convert_input,)
+
+
+@app.cell
+def _(gpd):
+    def convert_shp(input_path, output_path):
+        shp = gpd.read_file(input_path)
+        shp.to_parquet(output_path)
+    return (convert_shp,)
 
 
 @app.cell(hide_code=True)
