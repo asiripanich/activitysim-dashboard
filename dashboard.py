@@ -44,26 +44,26 @@ def ui_title(mo):
 
 
 @app.cell(hide_code=True)
-def input_settings(mo):
+def _():
+    scenario_discrete_color_map = {"Base": "#bac5c5", "Project": "#119992"}
+    return (scenario_discrete_color_map,)
+
+
+@app.cell(hide_code=True)
+def input_settings(input_dirs_exist, mo, ui_folder_settings_form):
+    input_dirs_exist
+
     base_label = mo.ui.text(
         placeholder="Output folder...", label="**Label:** ", value="Base"
     )
-    base_dir = mo.ui.text(
-        placeholder="Output folder...",
-        label="**Folder** ",
-        value=r"example_data/mtc/base",
-        full_width=True,
-    )
+
+    base_dir = ui_folder_settings_form.value.get("base_dir")
 
     proj_label = mo.ui.text(
         placeholder="Label...", label="**Label:** ", value="Project"
     )
-    proj_dir = mo.ui.text(
-        placeholder="Label...",
-        label="**Folder** ",
-        value=r"example_data/mtc/project",
-        full_width=True,
-    )
+
+    proj_dir = ui_folder_settings_form.value.get("proj_dir")
 
     params_dir = mo.ui.text(
         placeholder="Parameter YAML file..",
@@ -71,16 +71,7 @@ def input_settings(mo):
         value=r"example_data/mtc/params.yaml",
         full_width=True,
     )
-
-    scenario_discrete_color_map = {"Base": "#bac5c5", "Project": "#119992"}
-    return (
-        base_dir,
-        base_label,
-        params_dir,
-        proj_dir,
-        proj_label,
-        scenario_discrete_color_map,
-    )
+    return base_dir, base_label, params_dir, proj_dir, proj_label
 
 
 @app.cell(hide_code=True)
@@ -108,45 +99,87 @@ def banner_html_code(mo):
 
 
 @app.cell(hide_code=True)
-def ui_input_settings(base_dir, mo, proj_dir, scenario_discrete_color_map):
-    mo.vstack(
+def _(mo, scenario_discrete_color_map):
+    ui_banner = mo.hstack(
         [
-            mo.hstack(
-                [
-                    mo.vstack(
-                        [
-                            mo.md(f"""
+            mo.md(f"""
                         <button class="take-challenge-btn" style='background: linear-gradient(to right, {scenario_discrete_color_map["Base"]}, #ffffff);'>
                             <h1 style="text-align: left;"> Base </h1> 
                       </button>"""),
-                            # base_label,
-                            base_dir,
-                        ]
-                    ),
-                    mo.vstack(
-                        [
-                            mo.md(f"""
+            mo.md(f"""
                         <button class="take-challenge-btn" style="background: linear-gradient(to left, {scenario_discrete_color_map["Project"]}, #ffffff); color: #ffffff;">
                             <h1 style="text-align: right;"> Project </h1>
                       </button>"""),
-                            # proj_label,
-                            proj_dir,
-                        ]
-                    ),
-                ],
-                justify="space-around",
-                align="stretch",
-                widths="equal",
-            ),
-            # params_dir,
-            mo.md("-------"),
-        ]
+        ],
+        justify="space-around",
+        align="stretch",
+        widths="equal",
     )
+    return (ui_banner,)
+
+
+@app.cell(hide_code=True)
+def _(ui_banner):
+    ui_banner
+    return
+
+
+@app.cell(hide_code=True)
+def ui_folder_settings(mo):
+    ui_folder_settings = mo.hstack(
+        [mo.md("{base_dir}"), mo.md("{proj_dir}")], widths="equal"
+    )
+    return (ui_folder_settings,)
+
+
+@app.cell(hide_code=True)
+def ui_folder_settings_form(mo, ui_folder_settings):
+    ui_folder_settings_form = ui_folder_settings.batch(
+        base_dir=mo.ui.text(
+            placeholder="Output folder...",
+            label="**Base Folder** ",
+            value=r"example_data/mtc/base",
+            full_width=True,
+        ),
+        proj_dir=mo.ui.text(
+            placeholder="Output folder...",
+            label="**Project Folder** ",
+            value=r"example_data/mtc/project",
+            full_width=True,
+        ),
+    ).form()
+    return (ui_folder_settings_form,)
+
+
+@app.cell(hide_code=True)
+def ui_folder_settings_form_display(ui_folder_settings_form):
+    ui_folder_settings_form
     return
 
 
 @app.cell
-def read_input_parquets(base_dir, os, pl, proj_dir):
+def _(mo, ui_folder_settings_form):
+    mo.stop(ui_folder_settings_form.value is None, mo.md("**Submit the form to continue.**"))
+    check_input_dirs = None
+    return (check_input_dirs,)
+
+
+@app.cell
+def check_input_dirs(check_input_dirs, mo, os, ui_folder_settings_form):
+    check_input_dirs
+    def _check_input_dirs(ui_folder_settings_form_value):
+        if not os.path.exists(ui_folder_settings_form_value.get("base_dir")):
+            return mo.callout(mo.md("## \N{CROSS MARK} **Base folder** was not found."), kind="danger")
+        if not os.path.exists(ui_folder_settings_form_value.get("proj_dir")):
+            return mo.callout(mo.md("## \N{CROSS MARK} **Project folder** was not found."), kind="danger")
+        return True
+
+    _check_result = _check_input_dirs(ui_folder_settings_form.value)
+    mo.stop(_check_result is not True, _check_result)
+
+    input_dirs_exist = True
+    return (input_dirs_exist,)
+
     _asim_output_names = {
         "persons": "final_persons.parquet",
         "households": "final_households.parquet",
