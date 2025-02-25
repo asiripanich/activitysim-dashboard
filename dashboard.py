@@ -413,22 +413,23 @@ def ui_models_helper(column_table, mo):
 
 
 @app.cell(hide_code=True)
-def ui_model_tabs(models_tab_ui):
-    models_tab_ui
-    return
-
-
-@app.cell(hide_code=True)
-def column_filter_table(BASE_OUTPUTS, mo, pl):
+def column_filter_table(BASE_OUTPUTS, gpd, mo, pl):
     # Define tables to exclude
     _exclude_tables = {"skims", "land_use"}
 
     # Filter table names and create a list of DataFrames for each valid table
+    def _get_columns(frame):
+        if isinstance(frame, gpd.GeoDataFrame):
+            return frame.columns
+        elif isinstance(frame, pl.LazyFrame):
+            return frame.collect_schema().keys()
+
+
     _dfs = [
         pl.DataFrame(
             {
                 "table": table_name,
-                "variable": BASE_OUTPUTS[table_name].collect_schema().keys(),
+                "variable": _get_columns(BASE_OUTPUTS[table_name]),
             }
         )
         for table_name in BASE_OUTPUTS.keys()
@@ -440,7 +441,7 @@ def column_filter_table(BASE_OUTPUTS, mo, pl):
         ~pl.col("variable").str.ends_with("_id")
     )
 
-    column_table = mo.ui.table(all_columns_df.to_pandas())
+    column_table = mo.ui.table(all_columns_df.to_pandas()).form()
     return all_columns_df, column_table
 
 
@@ -448,7 +449,7 @@ def column_filter_table(BASE_OUTPUTS, mo, pl):
 def filter_columns(column_table):
     FILTER_COLUMNS = (
         column_table.value["variable"].to_list()
-        if len(column_table.value["variable"]) > 0
+        if column_table.value is not None
         else None
     )
     return (FILTER_COLUMNS,)
