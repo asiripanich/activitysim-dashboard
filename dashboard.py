@@ -203,16 +203,16 @@ def check_input_dirs(check_input_dirs, mo, os, ui_folder_settings_form):
     return BASE_OUTPUTS, PROJ_OUTPUTS, lazy_read_asim_outputs
 
 
-@app.cell
-def ui_overview(mo):
+@app.cell(hide_code=True)
+def ui_overview(input_dirs_exist, mo):
     mo.hstack(
         [mo.md(rf"""# {mo.icon("lucide:chart-bar-big")} Overview""")],
         justify="start",
-    )
+    ) if input_dirs_exist is True else None
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(summary_cards):
     summary_cards
     return
@@ -384,11 +384,11 @@ def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
 
 
 @app.cell(hide_code=True)
-def ui_models(mo):
+def ui_models(input_dirs_exist, mo):
     mo.hstack(
         [mo.md(rf"""# {mo.icon("lucide:square-chevron-right")} Models""")],
         justify="start",
-    )
+    ) if input_dirs_exist is True else None
     return
 
 
