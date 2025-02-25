@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.13"
 # dependencies = [
 #     "great-tables==0.16.1",
 #     "marimo",
