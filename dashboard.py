@@ -628,6 +628,42 @@ def assemble_model_diagnostics(
     return assemble_model_diagnostics, check_exists
 
 
+@app.cell
+def _(input_dirs_exist, mo):
+    mo.md("""### Households/Persons""") if input_dirs_exist is True else None
+    return
+
+
+@app.cell
+def _(household_person_choices):
+    household_person_choices
+    return
+
+
+@app.cell
+def _(input_dirs_exist, mo):
+    mo.md("""### Tours""") if input_dirs_exist is True else None
+    return
+
+
+@app.cell
+def _(tour_choices):
+    tour_choices
+    return
+
+
+@app.cell
+def _(input_dirs_exist, mo):
+    mo.md("""### Trips""") if input_dirs_exist is True else None
+    return
+
+
+@app.cell
+def _(trip_choices):
+    trip_choices
+    return
+
+
 @app.cell(hide_code=True)
 def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
     household_person_choices = mo.accordion(
@@ -635,9 +671,20 @@ def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
             f"#### {key}": assemble_model_diagnostics(fields)
             for key, fields in MODELS.get("household_person").items()
             if check_exists(fields)
-        }
+        }, lazy=True
     )
+    # models_tab_ui = mo.vstack(
+    #     [
+    #         mo.accordion({"### Households/Persons": household_person_choices}),
+    #         mo.accordion({"### Tours": tour_choices}),
+    #         mo.accordion({"### Trips": trip_choices}),
+    #     ]
+    # )
+    return (household_person_choices,)
 
+
+@app.cell
+def _(MODELS, assemble_model_diagnostics, check_exists, mo):
     tour_choices = mo.accordion(
         {
             f"#### {key}": assemble_model_diagnostics(fields)
@@ -645,7 +692,11 @@ def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
             if check_exists(fields)
         }
     )
+    return (tour_choices,)
 
+
+@app.cell
+def _(MODELS, assemble_model_diagnostics, check_exists, mo):
     trip_choices = mo.accordion(
         {
             f"#### {key}": assemble_model_diagnostics(fields)
@@ -653,16 +704,7 @@ def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
             if check_exists(fields)
         }
     )
-
-
-    models_tab_ui = mo.vstack(
-        [
-            mo.accordion({"### Households/Persons": household_person_choices}),
-            mo.accordion({"### Tours": tour_choices}),
-            mo.accordion({"### Trips": trip_choices}),
-        ]
-    )
-    return household_person_choices, models_tab_ui, tour_choices, trip_choices
+    return (trip_choices,)
 
 
 @app.cell(hide_code=True)
