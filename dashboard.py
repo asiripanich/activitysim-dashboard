@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.11.7"
+__generated_with = "0.11.9"
 app = marimo.App(width="full", app_title="ActivitySim dashboard")
 
 
