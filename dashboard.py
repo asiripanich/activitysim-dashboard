@@ -163,7 +163,10 @@ def ui_folder_settings_form_display(ui_folder_settings_form):
 
 @app.cell
 def _(mo, ui_folder_settings_form):
-    mo.stop(ui_folder_settings_form.value is None, mo.md("**Submit the form to continue.**"))
+    mo.stop(
+        ui_folder_settings_form.value is None,
+        mo.md("**Submit the form to continue.**"),
+    )
     check_input_dirs = None
     return (check_input_dirs,)
 
@@ -171,12 +174,21 @@ def _(mo, ui_folder_settings_form):
 @app.cell
 def check_input_dirs(check_input_dirs, mo, os, ui_folder_settings_form):
     check_input_dirs
+
+
     def _check_input_dirs(ui_folder_settings_form_value):
         if not os.path.exists(ui_folder_settings_form_value.get("base_dir")):
-            return mo.callout(mo.md("## \N{CROSS MARK} **Base folder** was not found."), kind="danger")
+            return mo.callout(
+                mo.md("## \N{CROSS MARK} **Base folder** was not found."),
+                kind="danger",
+            )
         if not os.path.exists(ui_folder_settings_form_value.get("proj_dir")):
-            return mo.callout(mo.md("## \N{CROSS MARK} **Project folder** was not found."), kind="danger")
+            return mo.callout(
+                mo.md("## \N{CROSS MARK} **Project folder** was not found."),
+                kind="danger",
+            )
         return True
+
 
     _check_result = _check_input_dirs(ui_folder_settings_form.value)
     mo.stop(_check_result is not True, _check_result)
@@ -440,6 +452,7 @@ def ui_models_helper(column_table, mo):
 def column_filter_table(BASE_OUTPUTS, gpd, mo, pl):
     # Define tables to exclude
     _exclude_tables = {"skims", "land_use"}
+
 
     # Filter table names and create a list of DataFrames for each valid table
     def _get_columns(frame):
@@ -746,8 +759,8 @@ def generate_model_diagnostic(
     scenario_discrete_color_map,
     style,
 ):
-    @mo.persistent_cache
-    def generate_model_diagnostic(
+    # @mo.cache
+    def generate_general_model_diagnostic(
         base: pl.LazyFrame,
         proj: Optional[pl.LazyFrame],
         variable: str,
@@ -772,7 +785,7 @@ def generate_model_diagnostic(
         )
         agg_cols = [variable] + grouping_columns
 
-        def compute_aggregate(
+        def _compute_aggregate(
             lazy_df: pl.LazyFrame, group_cols: List[str]
         ) -> pl.DataFrame:
             """Aggregate the LazyFrame by the provided group columns."""
@@ -783,12 +796,12 @@ def generate_model_diagnostic(
             )
 
         # Compute aggregated data for the Base scenario
-        base_agg = compute_aggregate(base, agg_cols).with_columns(
+        base_agg = _compute_aggregate(base, agg_cols).with_columns(
             scenario=pl.lit("Base")
         )
         # Compute aggregated data for the Project scenario if available
         if proj is not None:
-            proj_agg = compute_aggregate(proj, agg_cols).with_columns(
+            proj_agg = _compute_aggregate(proj, agg_cols).with_columns(
                 scenario=pl.lit("Project")
             )
             agg_df = pl.concat([base_agg, proj_agg], how="vertical")
@@ -818,7 +831,7 @@ def generate_model_diagnostic(
             .sort(agg_cols)
         )
 
-        def generate_formatted_table(df: pl.DataFrame):
+        def _generate_formatted_table(df: pl.DataFrame):
             """Generate a formatted table with RMSE and MAPE metrics."""
             # Compute metrics: RMSE and MAPE
             metrics = df.select(
@@ -875,7 +888,7 @@ def generate_model_diagnostic(
                 )
             )
 
-        def generate_figure(col: str):
+        def _generate_figure(col: str):
             """Generate a Plotly bar chart for the specified column ('share' or 'len')."""
             if col == "share":
                 labels = {"share": "Percentage (%)"}
@@ -931,9 +944,9 @@ def generate_model_diagnostic(
         # Generate visuals: create tabs for Share and Count figures and format the table
         tabs = mo.ui.tabs(
             {
-                "Share": generate_figure("share"),
-                "Count": generate_figure("len"),
-                "Table": generate_formatted_table(agg_df_pivoted),
+                "Share": _generate_figure("share"),
+                "Count": _generate_figure("len"),
+                "Table": _generate_formatted_table(agg_df_pivoted),
             }
         )
 
