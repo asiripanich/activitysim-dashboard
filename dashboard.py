@@ -1,6 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
+#     "geopandas==1.0.1",
 #     "great-tables==0.16.1",
 #     "marimo",
 #     "pandas==2.2.3",
@@ -22,10 +23,13 @@ def import_packages():
     import os
     import polars as pl
     import polars.selectors as cs
+    import geopandas as gpd
     from typing import Any, Dict, Optional
     import plotly.express as px
     from great_tables import GT, style, loc, md
-    return Any, Dict, GT, Optional, cs, loc, md, mo, os, pl, px, style
+
+    pl.enable_string_cache()
+    return Any, Dict, GT, Optional, cs, gpd, loc, md, mo, os, pl, px, style
 
 
 @app.cell(hide_code=True)
@@ -180,27 +184,47 @@ def check_input_dirs(check_input_dirs, mo, os, ui_folder_settings_form):
     input_dirs_exist = True
     return (input_dirs_exist,)
 
+
+@app.cell(hide_code=True)
+def read_input_parquets(base_dir, gpd, input_dirs_exist, os, pl, proj_dir):
+    input_dirs_exist
+
     _asim_output_names = {
-        "persons": "final_persons.parquet",
-        "households": "final_households.parquet",
-        "trips": "final_trips.parquet",
-        "tours": "final_tours.parquet",
-        "joint_tour_participants": "final_joint_tour_participants.parquet",
-        "land_use": "final_land_use.parquet",
-        "skims": "skims.parquet",
+        "persons": {"filename": "final_persons.parquet", "required": True},
+        "households": {"filename": "final_households.parquet", "required": True},
+        "trips": {"filename": "final_trips.parquet", "required": True},
+        "tours": {"filename": "final_tours.parquet", "required": True},
+        "joint_tour_participants": {
+            "filename": "final_joint_tour_participants.parquet",
+            "required": True,
+        },
+        "land_use": {"filename": "final_land_use.parquet", "required": True},
+        "skims": {"filename": "skims.parquet", "required": True},
+        "zones": {"filename": "zones.parquet", "required": False},
     }
 
 
-    def lazy_read_asim_outputs(asim_path):
-        return {
-            key: pl.scan_parquet(os.path.join(asim_path, value))
-            for key, value in _asim_output_names.items()
-        }
+    def read_asim_output(asim_path, attributes):
+        filepath = os.path.join(asim_path, attributes["filename"])
+
+        if not os.path.exists(filepath) and attributes["required"] == False:
+            return None
+
+        if attributes["filename"] == "zones.parquet":
+            return gpd.read_parquet(filepath)
+        else:
+            return pl.scan_parquet(filepath)
 
 
-    PROJ_OUTPUTS = lazy_read_asim_outputs(proj_dir.value)
-    BASE_OUTPUTS = lazy_read_asim_outputs(base_dir.value)
-    return BASE_OUTPUTS, PROJ_OUTPUTS, lazy_read_asim_outputs
+    PROJ_OUTPUTS = {
+        table_name: read_asim_output(proj_dir, attributes)
+        for table_name, attributes in _asim_output_names.items()
+    }
+    BASE_OUTPUTS = {
+        table_name: read_asim_output(base_dir, attributes)
+        for table_name, attributes in _asim_output_names.items()
+    }
+    return BASE_OUTPUTS, PROJ_OUTPUTS, read_asim_output
 
 
 @app.cell(hide_code=True)
