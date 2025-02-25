@@ -91,7 +91,7 @@ def banner_html_code(mo):
               border-radius: 4px;
               color: #ffffff;
               padding: 10px 20px;
-              min-width: 535px;
+              min-width: 530px;
               max-height: 60px;
               align-items: center;
             }
@@ -115,9 +115,6 @@ def _(mo, scenario_discrete_color_map):
                             <h1 style="text-align: right;"> Project </h1>
                       </button>"""),
         ],
-        justify="space-around",
-        align="stretch",
-        widths="equal",
     )
     return (ui_banner,)
 
@@ -162,7 +159,7 @@ def ui_folder_settings_form_display(ui_folder_settings_form):
 
 
 @app.cell
-def _(mo, ui_folder_settings_form):
+def stop_sign(mo, ui_folder_settings_form):
     mo.stop(
         ui_folder_settings_form.value is None,
         mo.md("**Submit the form to continue.**"),
@@ -174,7 +171,6 @@ def _(mo, ui_folder_settings_form):
 @app.cell
 def check_input_dirs(check_input_dirs, mo, os, ui_folder_settings_form):
     check_input_dirs
-
 
     def _check_input_dirs(ui_folder_settings_form_value):
         if not os.path.exists(ui_folder_settings_form_value.get("base_dir")):
@@ -249,7 +245,7 @@ def ui_overview(input_dirs_exist, mo):
 
 
 @app.cell(hide_code=True)
-def _(summary_cards):
+def ui_summary_cards(summary_cards):
     summary_cards
     return
 
@@ -492,7 +488,7 @@ def filter_columns(column_table):
     return (FILTER_COLUMNS,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def models_settings(pl):
     MODELS = {
         "household_person": {
@@ -512,16 +508,26 @@ def models_settings(pl):
                 "table": "persons",
                 "result_field": "school_zone_id",
                 "filter_expr": pl.col("school_zone_id") > 0,
+                "skims_variable": "DIST",
+                "land_use_control_variable": "COLLFTE",
+                "origin_zone_variable": "home_zone_id",
             },
             "work_location": {
                 "table": "persons",
                 "result_field": "workplace_zone_id",
                 "filter_expr": pl.col("workplace_zone_id") > 0,
+                "skims_variable": "DIST",
+                "land_use_control_variable": "TOTEMP",
+                "origin_zone_variable": "home_zone_id",
             },
+            # 'business_location' is specific to Victoria's implementation 
             "business_location": {
                 "table": "persons",
                 "result_field": "business_zone_id",
                 "filter_expr": pl.col("business_zone_id") > 0,
+                "skims_variable": "DIST",
+                "land_use_control_variable": "TOTEMP",
+                "origin_zone_variable": "home_zone_id",
             },
             "telecommute_frequency": {
                 "table": "persons",
@@ -608,6 +614,8 @@ def models_settings(pl):
             "trip_destination": {
                 "table": "trips",
                 "result_field": "destination",
+                "skims_variable": "DIST",
+                "origin_zone_variable": "origin",
             },
             "trip_mode": {
                 "table": "trips",
@@ -618,15 +626,19 @@ def models_settings(pl):
     return (MODELS,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def assemble_model_diagnostics(
     BASE_OUTPUTS,
     FILTER_COLUMNS,
+    List,
+    Optional,
     PROJ_OUTPUTS,
-    generate_model_diagnostic,
+    generate_general_model_diagnostic,
+    generate_location_model_diagnostic,
     mo,
+    pl,
 ):
-    def assemble_model_diagnostics(fields):
+    def assemble_model_diagnostics(model_name, fields):
         table_name = fields["table"]
         base_lazy_df = BASE_OUTPUTS[table_name]
         proj_lazy_df = PROJ_OUTPUTS[table_name]
@@ -645,14 +657,34 @@ def assemble_model_diagnostics(
             generate_model_diagnostic(
                 base_lazy_df,
                 proj_lazy_df,
-                field,
+                result_field,
+                fields,
                 FILTER_COLUMNS,
+                model_name,
             )
-            for field in result_fields
+            for result_field in result_fields
         ]
 
         # Return a single diagnostic if only one, or stack them otherwise.
         return diagnostics[0] if len(diagnostics) == 1 else mo.vstack(diagnostics)
+
+
+    def generate_model_diagnostic(
+        base_lazy_df: pl.LazyFrame,
+        proj_lazy_df: Optional[pl.LazyFrame],
+        variable: str,
+        fields,
+        by_columns: Optional[List[str]] = None,
+        model_name: str = None,
+    ):
+        if model_name.endswith(("_location", "_destination")):
+            return generate_location_model_diagnostic(
+                base_lazy_df, proj_lazy_df, variable, fields, by_columns
+            )
+        else:
+            return generate_general_model_diagnostic(
+                base_lazy_df, proj_lazy_df, variable, by_columns
+            )
 
 
     def check_exists(fields):
@@ -663,40 +695,40 @@ def assemble_model_diagnostics(
             return result_field in table_cols
 
         return all(item in table_cols for item in result_field)
-    return assemble_model_diagnostics, check_exists
+    return assemble_model_diagnostics, check_exists, generate_model_diagnostic
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(input_dirs_exist, mo):
     mo.md("""### Households/Persons""") if input_dirs_exist is True else None
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(household_person_choices):
     household_person_choices
     return
 
 
-@app.cell
-def _(input_dirs_exist, mo):
+@app.cell(hide_code=True)
+def ui_models_tour_section(input_dirs_exist, mo):
     mo.md("""### Tours""") if input_dirs_exist is True else None
     return
 
 
-@app.cell
-def _(tour_choices):
+@app.cell(hide_code=True)
+def ui_models_tour_choices(tour_choices):
     tour_choices
     return
 
 
-@app.cell
-def _(input_dirs_exist, mo):
+@app.cell(hide_code=True)
+def ui_models_trip_section(input_dirs_exist, mo):
     mo.md("""### Trips""") if input_dirs_exist is True else None
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(trip_choices):
     trip_choices
     return
@@ -706,10 +738,11 @@ def _(trip_choices):
 def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
     household_person_choices = mo.accordion(
         {
-            f"#### {key}": assemble_model_diagnostics(fields)
-            for key, fields in MODELS.get("household_person").items()
+            f"#### {model_name}": assemble_model_diagnostics(model_name, fields)
+            for model_name, fields in MODELS.get("household_person").items()
             if check_exists(fields)
-        }, lazy=True
+        },
+        lazy=True,
     )
     # models_tab_ui = mo.vstack(
     #     [
@@ -721,32 +754,32 @@ def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
     return (household_person_choices,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(MODELS, assemble_model_diagnostics, check_exists, mo):
     tour_choices = mo.accordion(
         {
-            f"#### {key}": assemble_model_diagnostics(fields)
-            for key, fields in MODELS.get("tour").items()
+            f"#### {model_name}": assemble_model_diagnostics(model_name, fields)
+            for model_name, fields in MODELS.get("tour").items()
             if check_exists(fields)
         }
     )
     return (tour_choices,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(MODELS, assemble_model_diagnostics, check_exists, mo):
     trip_choices = mo.accordion(
         {
-            f"#### {key}": assemble_model_diagnostics(fields)
-            for key, fields in MODELS.get("trip").items()
+            f"#### {model_name}": assemble_model_diagnostics(model_name, fields)
+            for model_name, fields in MODELS.get("trip").items()
             if check_exists(fields)
         }
     )
     return (trip_choices,)
 
 
-@app.cell(hide_code=True)
-def generate_model_diagnostic(
+@app.cell
+def generate_general_model_diagnostic(
     GT,
     List,
     Optional,
@@ -759,7 +792,7 @@ def generate_model_diagnostic(
     scenario_discrete_color_map,
     style,
 ):
-    # @mo.cache
+    @mo.persistent_cache
     def generate_general_model_diagnostic(
         base: pl.LazyFrame,
         proj: Optional[pl.LazyFrame],
@@ -784,6 +817,7 @@ def generate_model_diagnostic(
             [col for col in by_columns if col in base_schema] if by_columns else []
         )
         agg_cols = [variable] + grouping_columns
+        agg_cols = set(agg_cols)
 
         def _compute_aggregate(
             lazy_df: pl.LazyFrame, group_cols: List[str]
@@ -952,7 +986,283 @@ def generate_model_diagnostic(
 
         # Combine visuals and table in a vertical stack layout
         return mo.vstack([tabs])
-    return (generate_model_diagnostic,)
+    return (generate_general_model_diagnostic,)
+
+
+@app.cell
+def _(
+    BASE_OUTPUTS,
+    Dict,
+    List,
+    Optional,
+    PROJ_OUTPUTS,
+    mo,
+    pl,
+    px,
+    scenario_discrete_color_map,
+):
+    # Assume these globals are defined elsewhere in your project
+    # BASE_OUTPUTS, PROJ_OUTPUTS, scenario_discrete_color_map, mo
+
+
+    def _generate_scatter(
+        lazy_df: pl.LazyFrame,
+        scenario_outputs: Dict[str, pl.LazyFrame],
+        variable: str,
+        land_use_control_variable: str,
+        scenario_color: str,
+        scenario_name: str,
+        by_columns: Optional[List[str]] = None,
+    ) -> px.Figure:
+        """
+        Generate a scatter plot comparing aggregated counts to land use control values.
+
+        The function aggregates the given lazy dataframe by the provided variable,
+        joins with the land use data to bring in the control variable, and computes
+        both the relative and absolute differences. A scatter plot with marginal
+        histograms is then created.
+
+        Parameters:
+            lazy_df: A Polars LazyFrame containing the base data.
+            scenario_outputs: Dictionary with scenario outputs, must include 'land_use'.
+            variable: Column name used for grouping.
+            land_use_control_variable: Column name from land use data for comparison.
+            scenario_color: Color for the scenario's markers.
+            by_columns: Optional additional columns for grouping (currently unused).
+
+        Returns:
+            A Plotly Express scatter figure.
+        """
+        # Aggregate data and join with land use control data
+        land_use_agg_df = (
+            lazy_df.group_by(variable)
+            .agg(pl.len().alias("count"))
+            .join(
+                scenario_outputs["land_use"].select(
+                    "zone_id", land_use_control_variable
+                ),
+                left_on=variable,
+                right_on="zone_id",
+                how="full",
+            )
+            .with_columns(count=pl.col("count"))
+            .with_columns(
+                relative_diff=(pl.col("count") / pl.col(land_use_control_variable))
+                - 1,
+                actual_diff=pl.col("count") - pl.col(land_use_control_variable),
+            )
+            .collect()
+        )
+
+        # Create scatter plot with marginal histograms
+        fig = px.scatter(
+            land_use_agg_df,
+            x="relative_diff",
+            y="actual_diff",
+            marginal_x="histogram",
+            marginal_y="histogram",
+            hover_data=[variable, "count", land_use_control_variable],
+            height=800,
+            title=f"{scenario_name}",
+            labels={"actual_diff": "Actual difference", "relative_diff": "Relative difference"}
+        )
+        fig.update_layout(xaxis=dict(tickformat=".0%"))
+        fig.update_traces(marker=dict(color=scenario_color))
+        return fig
+
+
+    def _compute_distance_df(
+        lazy_df: pl.LazyFrame,
+        scenario_outputs: Dict[str, pl.LazyFrame],
+        variable: str,
+        skims_variable: str,
+        scenario_name: str,
+        origin_zone_variable: str,
+        by_columns: Optional[List[str]] = None,
+    ) -> pl.LazyFrame:
+        """
+        Compute an aggregated distance dataframe for a scenario.
+
+        This helper function filters out rows where the specified variable is 0,
+        joins with skims data, groups by the floored skims variable, and counts
+        the occurrences. A scenario label is added for later differentiation.
+
+        Parameters:
+            lazy_df: A Polars LazyFrame with the input data.
+            scenario_outputs: Dictionary with scenario outputs, must include 'skims'.
+            variable: Column name to filter and join on (e.g., destination zone).
+            skims_variable: Column name in the skims data to group by.
+            scenario_name: A label to identify the scenario ("Base" or "Project").
+
+        Returns:
+            A Polars LazyFrame with the computed distance aggregations.
+        """
+        # Determine grouping columns that exist in the base schema
+        grouping_columns = by_columns
+
+        return (
+            lazy_df.select(grouping_columns + [variable, origin_zone_variable])
+            .filter(pl.col(variable) > 0)
+            .join(
+                scenario_outputs["skims"].select(
+                    "origin", "destination", skims_variable
+                ),
+                left_on=[origin_zone_variable, variable],
+                right_on=["origin", "destination"],
+            )
+            .with_columns(pl.col(skims_variable).floor())
+            .group_by(grouping_columns + [skims_variable])
+            .agg(pl.len().alias("count"))
+            .with_columns(scenario=pl.lit(scenario_name))
+        )
+
+
+    def _generate_distance_plot(
+        base_lazy_df: pl.LazyFrame,
+        proj_lazy_df: pl.LazyFrame,
+        variable: str,
+        skims_variable: str,
+        origin_zone_variable: str,
+        by_columns: Optional[List[str]] = None,
+    ) -> px.Figure:
+        """
+        Generate a bar plot comparing distance aggregations between scenarios.
+
+        Two datasets (base and project) are processed to compute distance counts
+        based on a skims variable. The results are combined and visualized in a
+        grouped bar plot.
+
+        Parameters:
+            base_lazy_df: Base scenario data as a Polars LazyFrame.
+            proj_lazy_df: Project scenario data as a Polars LazyFrame.
+            variable: Column name for joining on zone identifiers.
+            skims_variable: Column name in the skims data to group by.
+            by_columns: Optional additional columns for grouping (currently unused).
+
+        Returns:
+            A Plotly Express bar figure.
+        """
+
+        schema = base_lazy_df.collect_schema().names()
+        grouping_columns = (
+            [col for col in by_columns if col in schema] if by_columns else []
+        )
+
+        base_distance = _compute_distance_df(
+            base_lazy_df,
+            BASE_OUTPUTS,
+            variable,
+            skims_variable,
+            "Base",
+            origin_zone_variable,
+            grouping_columns,
+        )
+        proj_distance = _compute_distance_df(
+            proj_lazy_df,
+            PROJ_OUTPUTS,
+            variable,
+            skims_variable,
+            "Project",
+            origin_zone_variable,
+            grouping_columns,
+        )
+
+        # Concatenate and collect the data into a DataFrame
+        distance_df = pl.concat([base_distance, proj_distance]).collect()
+
+        # Create the bar plot; conversion to pandas may be needed for Plotly Express
+        fig = px.bar(
+            distance_df,
+            x=skims_variable,
+            y="count",
+            barmode="group",
+            color="scenario",
+            facet_col=grouping_columns[0] if grouping_columns else None,
+            color_discrete_map=scenario_discrete_color_map,
+        )
+        return fig
+
+
+    def generate_location_model_diagnostic(
+        base_lazy_df: pl.LazyFrame,
+        proj_lazy_df: Optional[pl.LazyFrame],
+        variable: str,
+        fields: Dict,
+        by_columns: Optional[List[str]] = None,
+    ):
+        """
+        Create a diagnostic UI for the location model with scatter and distance plots.
+
+        This function builds two tabs:
+          - 'Differences': Displays scatter plots of relative and actual differences.
+          - 'Distance': Shows a bar plot of distance aggregations between scenarios.
+
+        Parameters:
+            base_lazy_df: Base scenario data as a Polars LazyFrame.
+            proj_lazy_df: Project scenario data as a Polars LazyFrame (optional).
+            variable: Column name used for analysis.
+            fields: Dictionary containing keys 'skims_variable' and 'land_use_control_variable'.
+            by_columns: Optional list of columns for additional grouping (currently unused).
+
+        Returns:
+            A UI tabs object combining both diagnostic plots.
+        """
+        skims_variable = fields.get("skims_variable")
+        land_use_control_variable = fields.get("land_use_control_variable")
+        origin_zone_variable = fields.get("origin_zone_variable")
+
+        # Build the 'Differences' tab with scatter plots for Base and Project scenarios
+        if land_use_control_variable is not None:
+            differences_tab = mo.hstack(
+                [
+                    _generate_scatter(
+                        lazy_df=base_lazy_df,
+                        scenario_outputs=BASE_OUTPUTS,
+                        variable=variable,
+                        land_use_control_variable=land_use_control_variable,
+                        scenario_color=scenario_discrete_color_map.get("Base"),
+                        scenario_name="Base",
+                        by_columns=by_columns,
+                    ),
+                    _generate_scatter(
+                        lazy_df=proj_lazy_df,
+                        scenario_outputs=PROJ_OUTPUTS,
+                        variable=variable,
+                        land_use_control_variable=land_use_control_variable,
+                        scenario_color=scenario_discrete_color_map.get("Project"),
+                        scenario_name="Project",
+                        by_columns=by_columns,
+                    ),
+                ],
+                widths="equal",
+            )
+
+        # Build the 'Distance' tab with the bar plot
+        distance_tab = _generate_distance_plot(
+            base_lazy_df=base_lazy_df,
+            proj_lazy_df=proj_lazy_df,
+            variable=variable,
+            skims_variable=skims_variable,
+            origin_zone_variable=origin_zone_variable,
+            by_columns=by_columns,
+        )
+
+        # Combine the tabs into a single UI diagnostic object
+        if land_use_control_variable is None:
+            diagnostic_ui = mo.ui.tabs(
+                {
+                    "Distance": distance_tab,
+                }
+            )
+        else:
+            diagnostic_ui = mo.ui.tabs(
+                {
+                    "Differences to land use": differences_tab,
+                    "Distance": distance_tab,
+                }
+            )
+        return diagnostic_ui
+    return (generate_location_model_diagnostic,)
 
 
 if __name__ == "__main__":
