@@ -265,15 +265,25 @@ def ui_summary_cards(summary_cards):
     return
 
 
-@app.cell(hide_code=True)
-def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
+@app.cell
+def summary_cards(
+    Any,
+    BASE_OUTPUTS,
+    Dict,
+    MODELS,
+    Optional,
+    PROJ_OUTPUTS,
+    mo,
+    pl,
+):
+    # Utility Functions
     def _get_direction(proj_value: float, base_value: float) -> Optional[str]:
         """
         Compare the projected and base values and return a direction string.
 
         Args:
             proj_value (float): The projected value.
-            base_value (float): The base value.
+            base_value (float): The baseline value.
 
         Returns:
             Optional[str]: "increase" if proj_value > base_value,
@@ -287,108 +297,150 @@ def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
         return None
 
 
-    def _compute_summary(outputs):
+    def count_rows(lazy_frame: pl.LazyFrame) -> int:
         """
-        Compute summary metrics from output LazyFrames.
+        Return the total number of rows in a LazyFrame.
 
         Args:
-            outputs (dict): A dictionary containing LazyFrames for keys
-                            "persons", "households", "trips", and "tours".
+            lazy_frame (pl.LazyFrame): The LazyFrame to count rows.
 
         Returns:
-            dict: A dictionary of computed summary metrics.
+            int: The total number of rows.
         """
+        return lazy_frame.select(pl.len()).collect().item()
 
-        def _total_rows(lf: pl.LazyFrame) -> int:
-            return lf.select(pl.len()).collect().item()
 
-        def _total_binary_variable(
-            lf: pl.LazyFrame, variable: str
-        ) -> Optional[int]:
-            try:
-                result = (
-                    lf.group_by(variable)
-                    .agg(len=pl.len())
-                    .filter(pl.col(variable) == True)
-                    .collect()["len"]
-                    .item()
-                )
-            except Exception:
-                result = None
-            return result
+    def count_true(lazy_frame: pl.LazyFrame, column: str) -> Optional[int]:
+        """
+        Count the number of rows where the given column is True.
 
-        def _total_categorical_variable(
-            lf: pl.LazyFrame, variable: str, category
-        ) -> Optional[int]:
-            try:
-                result = (
-                    lf.group_by(variable)
-                    .agg(len=pl.len())
-                    .filter(pl.col(variable) == category)
-                    .collect()["len"]
-                    .item()
-                )
-            except Exception:
-                result = None
-            return result
+        Args:
+            lazy_frame (pl.LazyFrame): The LazyFrame to filter.
+            column (str): The column to evaluate.
 
-        total_persons = outputs["persons"].pipe(_total_rows)
-        total_households = outputs["households"].pipe(_total_rows)
-        total_trips = outputs["trips"].pipe(_total_rows)
-        total_tours = outputs["tours"].pipe(_total_rows)
+        Returns:
+            Optional[int]: The count of rows where the column is True, or None if an error occurs.
+        """
+        try:
+            return (
+                lazy_frame.filter(pl.col(column)).select(pl.len()).collect().item()
+            )
+        except Exception:
+            return None
+
+
+    def count_category(
+        lazy_frame: pl.LazyFrame, column: str, category: Any
+    ) -> Optional[int]:
+        """
+        Count the number of rows where the given column equals the specified category.
+
+        Args:
+            lazy_frame (pl.LazyFrame): The LazyFrame to filter.
+            column (str): The column to evaluate.
+            category (Any): The category value to count.
+
+        Returns:
+            Optional[int]: The count of rows for the category, or None if an error occurs.
+        """
+        try:
+            return (
+                lazy_frame.filter(pl.col(column) == category)
+                .select(pl.len())
+                .collect()
+                .item()
+            )
+        except Exception:
+            return None
+
+
+    # Summary Computation
+    def _compute_summary(outputs: Dict[str, pl.LazyFrame]) -> Dict[str, float]:
+        """
+        Compute summary metrics from a collection of LazyFrames.
+
+        The expected keys in `outputs` are "persons", "households", "trips", and "tours".
+
+        Args:
+            outputs (Dict[str, pl.LazyFrame]): Dictionary containing LazyFrames.
+
+        Returns:
+            Dict[str, float]: Computed summary metrics.
+        """
+        total_persons = count_rows(outputs["persons"])
+        total_households = count_rows(outputs["households"])
+        total_trips = count_rows(outputs["trips"])
+        total_tours = count_rows(outputs["tours"])
 
         return {
             "total_persons": total_persons,
             "total_households": total_households,
-            "average_household_size": total_persons / total_households,
+            "average_household_size": total_persons / total_households
+            if total_households
+            else 0,
             "total_trips": total_trips,
             "total_tours": total_tours,
-            "person_trips": total_trips / total_persons,
-            "person_tours": total_tours / total_persons,
-            "remote_workers": outputs["persons"].pipe(
-                _total_binary_variable,
-                MODELS["household_person"]
-                .get("work_from_home")
-                .get("result_field"),
+            "person_trips": total_trips / total_persons if total_persons else 0,
+            "person_tours": total_tours / total_persons if total_persons else 0,
+            "remote_workers": count_true(
+                outputs["persons"],
+                MODELS["household_person"]["work_from_home"]["result_field"],
             ),
-            "free_parking_at_work": outputs["persons"].pipe(
-                _total_binary_variable,
-                MODELS["household_person"]
-                .get("free_parking_at_work")
-                .get("result_field"),
+            "free_parking_at_work": count_true(
+                outputs["persons"],
+                MODELS["household_person"]["free_parking_at_work"]["result_field"],
             ),
-            "zero-car_households": outputs["households"].pipe(
-                _total_categorical_variable,
-                MODELS["household_person"]
-                .get("auto_ownership")
-                .get("result_field"),
+            "zero_car_households": count_category(
+                outputs["households"],
+                MODELS["household_person"]["auto_ownership"]["result_field"],
                 0,
             ),
         }
 
 
-    def _produce_card(base_value: float, proj_value: float, label: str) -> Any:
+    # Card Production Functions
+    def _format_caption(
+        proj_value: Optional[float], base_value: Optional[float]
+    ) -> Optional[str]:
         """
-        Create a summary card using base and projected values.
+        Format a caption string that shows the percentage difference and base value.
 
         Args:
-            base_value (float): The baseline value.
-            proj_value (float): The projected value.
+            proj_value (Optional[float]): The projected value.
+            base_value (Optional[float]): The baseline value.
+
+        Returns:
+            Optional[str]: The formatted caption or None if inputs are invalid.
+        """
+        if proj_value is None or base_value is None:
+            return None
+
+        pct_diff = ((proj_value / base_value) - 1) * 100
+        decimals = 0 if base_value == int(base_value) else 2
+        return f"{pct_diff:.1f}% (Base: {base_value:,.{decimals}f})"
+
+
+    def _produce_card(
+        base_value: Optional[float], proj_value: Optional[float], label: str
+    ) -> Any:
+        """
+        Create a summary card based on the base and projected values.
+
+        Args:
+            base_value (Optional[float]): The baseline value.
+            proj_value (Optional[float]): The projected value.
             label (str): The label for the card.
 
         Returns:
-            Any: A card object generated by mo.stat.
+            Any: A card object created by the m⊙statmo.stat function.
         """
         formatted_label = label.replace("_", " ").upper()
-
-        if proj_value is None or base_value is None:
-            direction = None
-            caption = None
-        else:
-            direction = _get_direction(proj_value, base_value)
-            pct_diff = ((proj_value / base_value) - 1) * 100
-            decimals = 0 if base_value == int(base_value) else 2
-            caption = f"{pct_diff:.1f}% (Base: {base_value:,.{decimals}f})"
+        caption = _format_caption(proj_value, base_value)
+        direction = (
+            _get_direction(proj_value, base_value)
+            if proj_value is not None and base_value is not None
+            else None
+        )
 
         return mo.stat(
             label=formatted_label,
@@ -399,35 +451,41 @@ def _(Any, BASE_OUTPUTS, Dict, MODELS, Optional, PROJ_OUTPUTS, mo, pl):
         )
 
 
-    def _produce_summary_cards(summary_dict: Dict[str, Dict[str, float]]) -> Any:
+    def generate_summary_cards(summary: Dict[str, Dict[str, float]]) -> Any:
         """
-        Generate summary cards from base and projected value dictionaries.
+        Generate a vertically stacked container of summary cards from metric dictionaries.
+
+        The ∑marysummary dictionary should have two keys: "base" and "proj", each mapping
+        to a dictionary of computed metrics.
 
         Args:
-            summary_dict (Dict[str, Dict[str, float]]): A dictionary with keys "base" and "proj",
-                each mapping to a dictionary of values.
+            summary (Dict[str, Dict[str, float]]): Summary metrics for base and projected values.
 
         Returns:
-            Any: A vertically stacked container of summary cards.
+            Any: A container object with the summary cards.
         """
         cards = [
-            _produce_card(
-                summary_dict["base"][key], summary_dict["proj"][key], key
-            )
-            for key in summary_dict["base"]
+            _produce_card(summary["base"].get(key), summary["proj"].get(key), key)
+            for key in summary["base"]
         ]
         return mo.vstack(
             [mo.hstack(cards, justify="center", align="center", wrap=True)]
         )
 
 
-    summary_cards = _produce_summary_cards(
+    summary_cards = generate_summary_cards(
         {
             "base": _compute_summary(BASE_OUTPUTS),
             "proj": _compute_summary(PROJ_OUTPUTS),
         }
     )
-    return (summary_cards,)
+    return (
+        count_category,
+        count_rows,
+        count_true,
+        generate_summary_cards,
+        summary_cards,
+    )
 
 
 @app.cell(hide_code=True)
