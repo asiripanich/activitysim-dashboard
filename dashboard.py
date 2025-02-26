@@ -991,8 +991,19 @@ def generate_general_model_diagnostic(
                 barmode="group",
                 color_discrete_map=scenario_discrete_color_map,
                 labels=labels,
+                hover_data=grouping_columns if grouping_columns else None,
                 text_auto=text_auto,
+                facet_col_wrap=4,
+                height=800,
+                title=f"x-axis: {variable}",
             )
+
+            if col == "share":
+                fig.update_layout(yaxis=dict(tickformat=".0%"))
+
+            # Remove x-axis titles from all facets
+            fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
+
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -1002,26 +1013,10 @@ def generate_general_model_diagnostic(
                     x=0.5,
                 ),
                 legend_title_text="",
-                legend_font_size=14,
+                legend_font_size=16,
+                font=dict(size=16),
             )
-            if col == "share":
-                fig.update_layout(yaxis=dict(tickformat=".0%"))
 
-            # Remove x-axis titles from all facets
-            fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
-
-            # Add a global x-axis label as an annotation
-            fig.add_annotation(
-                text=variable,
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=-0.1,
-                showarrow=False,
-                font=dict(size=14),
-                xanchor="center",
-                yanchor="top",
-            )
             return fig
 
         # Generate visuals: create tabs for Share and Count figures and format the table
@@ -1113,9 +1108,12 @@ def _(
             hover_data=[variable, "count", land_use_control_variable],
             height=800,
             title=f"{scenario_name}",
-            labels={"actual_diff": "Actual difference", "relative_diff": "Relative difference"}
+            labels={
+                "actual_diff": "Actual difference",
+                "relative_diff": "Relative difference",
+            },
         )
-        fig.update_layout(xaxis=dict(tickformat=".0%"))
+        fig.update_layout(xaxis=dict(tickformat=".0%"), font=dict(size=16))
         fig.update_traces(marker=dict(color=scenario_color))
         return fig
 
@@ -1228,7 +1226,19 @@ def _(
             color="scenario",
             facet_col=grouping_columns[0] if grouping_columns else None,
             color_discrete_map=scenario_discrete_color_map,
+            facet_col_wrap=4,
+            height=800,
+            title=f"x-axis: {skims_variable}",
         )
+
+        # Remove the variable name in the facet label
+        # fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+
+        # Remove x-axis titles from all facets
+        fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
+
+        fig.update_layout(font=dict(size=16))
+
         return fig
 
 
