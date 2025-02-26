@@ -713,45 +713,15 @@ def assemble_model_diagnostics(
     return assemble_model_diagnostics, check_exists, generate_model_diagnostic
 
 
-@app.cell(hide_code=True)
-def _(input_dirs_exist, mo):
-    mo.md("""### Households/Persons""") if input_dirs_exist is True else None
+@app.cell
+def _(INPUT_DIRS_EXIST, mo):
+    mo.md("""### Households/Persons""") if INPUT_DIRS_EXIST is True else None
     return
 
 
-@app.cell(hide_code=True)
-def _(household_person_choices):
-    household_person_choices
-    return
-
-
-@app.cell(hide_code=True)
-def ui_models_tour_section(input_dirs_exist, mo):
-    mo.md("""### Tours""") if input_dirs_exist is True else None
-    return
-
-
-@app.cell(hide_code=True)
-def ui_models_tour_choices(tour_choices):
-    tour_choices
-    return
-
-
-@app.cell(hide_code=True)
-def ui_models_trip_section(input_dirs_exist, mo):
-    mo.md("""### Trips""") if input_dirs_exist is True else None
-    return
-
-
-@app.cell(hide_code=True)
-def _(trip_choices):
-    trip_choices
-    return
-
-
-@app.cell(hide_code=True)
-def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
-    household_person_choices = mo.accordion(
+@app.cell
+def _(MODELS, assemble_model_diagnostics, check_exists, mo):
+    mo.accordion(
         {
             f"#### {model_name}": assemble_model_diagnostics(model_name, fields)
             for model_name, fields in MODELS.get("household_person").items()
@@ -759,38 +729,48 @@ def model_tabs(MODELS, assemble_model_diagnostics, check_exists, mo):
         },
         lazy=True,
     )
-    # models_tab_ui = mo.vstack(
-    #     [
-    #         mo.accordion({"### Households/Persons": household_person_choices}),
-    #         mo.accordion({"### Tours": tour_choices}),
-    #         mo.accordion({"### Trips": trip_choices}),
-    #     ]
-    # )
-    return (household_person_choices,)
+    return
 
 
-@app.cell(hide_code=True)
-def _(MODELS, assemble_model_diagnostics, check_exists, mo):
-    tour_choices = mo.accordion(
+@app.cell
+def ui_models_tour_section(INPUT_DIRS_EXIST, mo):
+    mo.md("""### Tours""") if INPUT_DIRS_EXIST is True else None
+    return
+
+
+@app.cell
+def ui_models_tour_choices(
+    MODELS,
+    assemble_model_diagnostics,
+    check_exists,
+    mo,
+):
+    mo.accordion(
         {
             f"#### {model_name}": assemble_model_diagnostics(model_name, fields)
             for model_name, fields in MODELS.get("tour").items()
             if check_exists(fields)
         }
     )
-    return (tour_choices,)
+    return
 
 
-@app.cell(hide_code=True)
+@app.cell
+def ui_models_trip_section(INPUT_DIRS_EXIST, mo):
+    mo.md("""### Trips""") if INPUT_DIRS_EXIST is True else None
+    return
+
+
+@app.cell
 def _(MODELS, assemble_model_diagnostics, check_exists, mo):
-    trip_choices = mo.accordion(
+    mo.accordion(
         {
             f"#### {model_name}": assemble_model_diagnostics(model_name, fields)
             for model_name, fields in MODELS.get("trip").items()
             if check_exists(fields)
         }
     )
-    return (trip_choices,)
+    return
 
 
 @app.cell
