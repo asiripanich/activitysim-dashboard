@@ -26,10 +26,25 @@ def import_packages():
     import geopandas as gpd
     from typing import Any, Dict, Optional
     import plotly.express as px
-    from great_tables import GT, style, loc, md
+    from great_tables import GT, style, loc, md, system_fonts
 
     pl.enable_string_cache()
-    return Any, Dict, GT, Optional, cs, gpd, loc, md, mo, os, pl, px, style
+    return (
+        Any,
+        Dict,
+        GT,
+        Optional,
+        cs,
+        gpd,
+        loc,
+        md,
+        mo,
+        os,
+        pl,
+        px,
+        style,
+        system_fonts,
+    )
 
 
 @app.cell(hide_code=True)
@@ -791,6 +806,7 @@ def generate_general_model_diagnostic(
     px,
     scenario_discrete_color_map,
     style,
+    system_fonts,
 ):
     @mo.persistent_cache
     def generate_general_model_diagnostic(
@@ -887,12 +903,39 @@ def generate_general_model_diagnostic(
             # Build the formatted table using GT
             return (
                 GT(df)
-                .tab_header(title=f"RMSE: {rmse}, MAPE: {mape}%")
                 .tab_spanner(
                     label=md("**Share (%)**"), columns=cs.starts_with("share_")
                 )
                 .tab_spanner(
                     label=md("**Count**"), columns=[cs.starts_with("len_"), "diff"]
+                )
+                .tab_style(
+                    style=[
+                        style.fill(color="#edf0ee"),
+                        # style.text(font="")
+                    ],
+                    locations=loc.column_header(),
+                )
+                # Conditional formatting ----------
+                # between -0 to -10%
+                .tab_style(
+                    style=style.text(color="#ff917a"),
+                    locations=loc.body(columns="pct_diff", rows=((pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)))
+                )
+                # less than - 10%
+                .tab_style(
+                    style=style.text(color="#ff5938"),
+                    locations=loc.body(columns="pct_diff", rows=pl.col("pct_diff") < -0.1)
+                )
+                # between 0 to 10%
+                .tab_style(
+                    style=style.text(color="#7aa7ff"),
+                    locations=loc.body(columns="pct_diff", rows=((pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)))
+                )
+                # more than 10%
+                .tab_style(
+                    style=style.text(color="#216bff"),
+                    locations=loc.body(columns="pct_diff", rows=pl.col("pct_diff") > 0.1)
                 )
                 .cols_move(columns="pct_diff", after="diff")
                 .cols_label(
@@ -900,8 +943,8 @@ def generate_general_model_diagnostic(
                     share_Project=md("**Project**"),
                     len_Base=md("**Base**"),
                     len_Project=md("**Project**"),
-                    diff=md("**Project - Base**"),
-                    pct_diff=md("% **difference**"),
+                    diff=md("**Difference***"),
+                    pct_diff=md("% **Difference**"),
                 )
                 .fmt_percent(columns=[cs.starts_with("share_"), "pct_diff"])
                 .fmt_integer(columns=[cs.starts_with("len_"), "diff"])
@@ -910,16 +953,22 @@ def generate_general_model_diagnostic(
                     palette="YlGn",
                     na_color="lightgray",
                 )
-                .data_color(
-                    columns=["pct_diff"],
-                    palette="RdBu",
-                    domain=[-1.5, 1.5],
-                    na_color="lightgray",
-                )
+                # .data_color(
+                #     columns=["pct_diff"],
+                #     palette="RdBu",
+                #     domain=[-1.5, 1.5],
+                #     na_color="lightgray",
+                # )
                 .tab_style(
                     style=style.text(weight="bolder"),
                     locations=loc.column_header(),
                 )
+                .tab_source_note(
+                    source_note=md(
+                        f"**Summary Statistics** - RMSE: {rmse}, MAPE: {mape}% \\\n *Difference = Project - Base"
+                    )
+                )
+                .tab_options(table_font_names=system_fonts("industrial"))
             )
 
         def _generate_figure(col: str):
