@@ -830,7 +830,9 @@ def generate_general_model_diagnostic(
         # Determine grouping columns that exist in the base schema
         base_schema = base.collect_schema().keys()
         grouping_columns = (
-            [col for col in by_columns if col in base_schema] if by_columns else []
+            [col for col in by_columns if col in base_schema and col != variable]
+            if by_columns
+            else []
         )
         agg_cols = [variable] + grouping_columns
         agg_cols = set(agg_cols)
