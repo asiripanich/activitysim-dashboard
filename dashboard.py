@@ -14,10 +14,10 @@
 import marimo
 
 __generated_with = "0.11.9"
-app = marimo.App(width="full", app_title="ActivitySim dashboard")
+app = marimo.App(width="medium", app_title="ActivitySim dashboard")
 
 
-@app.cell(hide_code=True)
+@app.cell
 def import_packages():
     import marimo as mo
     import os
@@ -47,30 +47,24 @@ def import_packages():
     )
 
 
-@app.cell(hide_code=True)
+@app.cell
 def ui_title(mo):
     mo.hstack(
-        [
-            # mo.image(
-            #     src="https://research.ampo.org/wp-content/uploads/2024/07/activitysim_logo_light.jpg",
-            #     height=100,
-            # ),
-            mo.md("# ActivitySim dashboard"),
-        ],
+        [mo.md("# ActivitySim dashboard")],
         justify="end",
     )
     return
 
 
-@app.cell(hide_code=True)
-def _():
+@app.cell
+def scenario_colors():
     scenario_discrete_color_map = {"Base": "#bac5c5", "Project": "#119992"}
     return (scenario_discrete_color_map,)
 
 
-@app.cell(hide_code=True)
-def input_settings(input_dirs_exist, mo, ui_folder_settings_form):
-    input_dirs_exist
+@app.cell
+def input_settings(INPUT_DIRS_EXIST, mo, ui_folder_settings_form):
+    INPUT_DIRS_EXIST
 
     base_label = mo.ui.text(
         placeholder="Output folder...", label="**Label:** ", value="Base"
@@ -93,7 +87,7 @@ def input_settings(input_dirs_exist, mo, ui_folder_settings_form):
     return base_dir, base_label, params_dir, proj_dir, proj_label
 
 
-@app.cell(hide_code=True)
+@app.cell
 def banner_html_code(mo):
     mo.md(
         r"""
@@ -117,8 +111,8 @@ def banner_html_code(mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo, scenario_discrete_color_map):
+@app.cell
+def banner(mo, scenario_discrete_color_map):
     ui_banner = mo.hstack(
         [
             mo.md(f"""
@@ -134,13 +128,13 @@ def _(mo, scenario_discrete_color_map):
     return (ui_banner,)
 
 
-@app.cell(hide_code=True)
-def _(ui_banner):
+@app.cell
+def ui_banner(ui_banner):
     ui_banner
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def ui_folder_settings(mo):
     ui_folder_settings = mo.hstack(
         [mo.md("{base_dir}"), mo.md("{proj_dir}")], widths="equal"
@@ -148,7 +142,7 @@ def ui_folder_settings(mo):
     return (ui_folder_settings,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def ui_folder_settings_form(mo, ui_folder_settings):
     ui_folder_settings_form = ui_folder_settings.batch(
         base_dir=mo.ui.text(
@@ -167,52 +161,54 @@ def ui_folder_settings_form(mo, ui_folder_settings):
     return (ui_folder_settings_form,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def ui_folder_settings_form_display(ui_folder_settings_form):
     ui_folder_settings_form
     return
 
 
 @app.cell
-def stop_sign(mo, ui_folder_settings_form):
+def stop_if_form_not_submitted(mo, ui_folder_settings_form):
+    """
+    Stop execution if the folder settings form has not been submitted.
+    """
+
     mo.stop(
         ui_folder_settings_form.value is None,
         mo.md("**Submit the form to continue.**"),
     )
-    check_input_dirs = None
-    return (check_input_dirs,)
+    CHECK_INPUT_DIRS = True
+    return (CHECK_INPUT_DIRS,)
 
 
 @app.cell
-def check_input_dirs(check_input_dirs, mo, os, ui_folder_settings_form):
-    check_input_dirs
+def check_input_dirs(Any, CHECK_INPUT_DIRS, mo, os, ui_folder_settings_form):
+    CHECK_INPUT_DIRS
 
-    def _check_input_dirs(ui_folder_settings_form_value):
-        if not os.path.exists(ui_folder_settings_form_value.get("base_dir")):
+    _form_vals = ui_folder_settings_form.value
+
+
+    def _check_dir(path: str, label: str) -> Any:
+        if not os.path.exists(path):
             return mo.callout(
-                mo.md("## \N{CROSS MARK} **Base folder** was not found."),
-                kind="danger",
-            )
-        if not os.path.exists(ui_folder_settings_form_value.get("proj_dir")):
-            return mo.callout(
-                mo.md("## \N{CROSS MARK} **Project folder** was not found."),
+                mo.md(f"## \N{CROSS MARK} **{label} folder** was not found."),
                 kind="danger",
             )
         return True
 
 
-    _check_result = _check_input_dirs(ui_folder_settings_form.value)
-    mo.stop(_check_result is not True, _check_result)
+    _base_check = _check_dir(_form_vals.get("base_dir"), "Base")
+    _proj_check = _check_dir(_form_vals.get("proj_dir"), "Project")
+    mo.stop(_base_check is not True, _base_check)
+    mo.stop(_proj_check is not True, _proj_check)
 
-    input_dirs_exist = True
-    return (input_dirs_exist,)
+    INPUT_DIRS_EXIST = True
+    return (INPUT_DIRS_EXIST,)
 
 
-@app.cell(hide_code=True)
-def read_input_parquets(base_dir, gpd, input_dirs_exist, os, pl, proj_dir):
-    input_dirs_exist
-
-    _asim_output_names = {
+@app.cell
+def _():
+    ACTIVITYSIM_OUTPUT_FILES = {
         "persons": {"filename": "final_persons.parquet", "required": True},
         "households": {"filename": "final_households.parquet", "required": True},
         "trips": {"filename": "final_trips.parquet", "required": True},
@@ -225,41 +221,57 @@ def read_input_parquets(base_dir, gpd, input_dirs_exist, os, pl, proj_dir):
         "skims": {"filename": "skims.parquet", "required": True},
         "zones": {"filename": "zones.parquet", "required": False},
     }
+    return (ACTIVITYSIM_OUTPUT_FILES,)
 
 
-    def read_asim_output(asim_path, attributes):
+@app.cell
+def read_input_parquets(
+    ACTIVITYSIM_OUTPUT_FILES,
+    Any,
+    INPUT_DIRS_EXIST,
+    Optional,
+    base_dir,
+    gpd,
+    os,
+    pl,
+    proj_dir,
+):
+    INPUT_DIRS_EXIST
+
+
+    def _read_asim_output(asim_path, attributes) -> Optional[Any]:
         filepath = os.path.join(asim_path, attributes["filename"])
 
-        if not os.path.exists(filepath) and attributes["required"] == False:
+        if not os.path.exists(filepath) and not attributes["required"]:
             return None
 
         if attributes["filename"] == "zones.parquet":
             return gpd.read_parquet(filepath)
-        else:
-            return pl.scan_parquet(filepath)
+
+        return pl.scan_parquet(filepath)
 
 
-    PROJ_OUTPUTS = {
-        table_name: read_asim_output(proj_dir, attributes)
-        for table_name, attributes in _asim_output_names.items()
-    }
     BASE_OUTPUTS = {
-        table_name: read_asim_output(base_dir, attributes)
-        for table_name, attributes in _asim_output_names.items()
+        name: _read_asim_output(base_dir, attrs)
+        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
     }
-    return BASE_OUTPUTS, PROJ_OUTPUTS, read_asim_output
+    PROJ_OUTPUTS = {
+        name: _read_asim_output(proj_dir, attrs)
+        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
+    }
+    return BASE_OUTPUTS, PROJ_OUTPUTS
 
 
-@app.cell(hide_code=True)
-def ui_overview(input_dirs_exist, mo):
+@app.cell
+def ui_overview(INPUT_DIRS_EXIST, mo):
     mo.hstack(
         [mo.md(rf"""# {mo.icon("lucide:chart-bar-big")} Overview""")],
         justify="start",
-    ) if input_dirs_exist is True else None
+    ) if INPUT_DIRS_EXIST is True else None
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def ui_summary_cards(summary_cards):
     summary_cards
     return
@@ -488,16 +500,16 @@ def summary_cards(
     )
 
 
-@app.cell(hide_code=True)
-def ui_models(input_dirs_exist, mo):
+@app.cell
+def ui_models(INPUT_DIRS_EXIST, mo):
     mo.hstack(
         [mo.md(rf"""# {mo.icon("lucide:square-chevron-right")} Models""")],
         justify="start",
-    ) if input_dirs_exist is True else None
+    ) if INPUT_DIRS_EXIST is True else None
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def ui_models_helper(column_table, mo):
     mo.accordion(
         {
@@ -517,7 +529,7 @@ def ui_models_helper(column_table, mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def column_filter_table(BASE_OUTPUTS, gpd, mo, pl):
     # Define tables to exclude
     _exclude_tables = {"skims", "land_use"}
@@ -551,7 +563,7 @@ def column_filter_table(BASE_OUTPUTS, gpd, mo, pl):
     return all_columns_df, column_table
 
 
-@app.cell(hide_code=True)
+@app.cell
 def filter_columns(column_table):
     FILTER_COLUMNS = (
         column_table.value["variable"].to_list()
@@ -593,7 +605,7 @@ def models_settings(pl):
                 "land_use_control_variable": "TOTEMP",
                 "origin_zone_variable": "home_zone_id",
             },
-            # 'business_location' is specific to Victoria's implementation 
+            # 'business_location' is specific to Victoria's implementation
             "business_location": {
                 "table": "persons",
                 "result_field": "business_zone_id",
@@ -1074,7 +1086,7 @@ def generate_general_model_diagnostic(
 
 
 @app.cell
-def _(
+def generate_location_model_diagnostic(
     BASE_OUTPUTS,
     Dict,
     List,
