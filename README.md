@@ -35,4 +35,4 @@ marimo edit --sandbox dashboard.py
 
 ### `input_converter.py`
 
-This is another Marimo notebook that helps convert CSV and OMX files to the Parquet format, enabling you to create compatible inputs for `dashboard.py`. This is particularly useful if you want to use the dashboard with ActivitySim final outputs provided in CSV format.
+This is another Marimo notebook that helps convert CSV, SHP, GeoJSON and OMX files to the Parquet format, enabling you to create compatible inputs for `dashboard.py`. This is particularly useful if you want to use the dashboard with ActivitySim final outputs provided in CSV format.
