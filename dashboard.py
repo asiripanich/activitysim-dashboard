@@ -509,8 +509,8 @@ def ui_models(INPUT_DIRS_EXIST, mo):
     return
 
 
-@app.cell
-def ui_models_helper(column_table, mo):
+@app.cell(hide_code=True)
+def ui_models_helper(INPUT_DIRS_EXIST, mo):
     mo.accordion(
         {
             "#### 👀 Model structure": mo.hstack(
@@ -523,9 +523,9 @@ def ui_models_helper(column_table, mo):
                 ],
                 justify="center",
             ),
-            "#### 🔎 Select a variable from the table to group by": column_table,
+            # "#### 🔎 Select a variable from the table to group by": column_table,
         }
-    )
+    ) if INPUT_DIRS_EXIST is True else None
     return
 
 
