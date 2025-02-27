@@ -530,44 +530,167 @@ def ui_models_helper(column_table, mo):
 
 
 @app.cell
-def column_filter_table(BASE_OUTPUTS, gpd, mo, pl):
-    # Define tables to exclude
-    _exclude_tables = {"skims", "land_use"}
+def column_filter_table(Any, BASE_OUTPUTS, Dict, List, Union, gpd, pl):
+    # Constants with underscore prefix to indicate internal usage
+    _EXCLUDE_TABLES = {"skims", "land_use"}
+    _COLUMN_SUFFIX_TO_FILTER = "_id"
 
 
-    # Filter table names and create a list of DataFrames for each valid table
-    def _get_columns(frame):
+    def _get_frame_columns(
+        frame: Union[gpd.GeoDataFrame, pl.LazyFrame],
+    ) -> List[str]:
+        """
+        Retrieve the list of column names from a GeoDataFrame or LazyFrame.
+
+        Args:
+            frame: A GeoDataFrame or LazyFrame object.
+
+        Returns:
+            A list of column names as strings.
+
+        Raises:
+            TypeError: If the frame type is not supported.
+        """
         if isinstance(frame, gpd.GeoDataFrame):
-            return frame.columns
+            return list(frame.columns)
         elif isinstance(frame, pl.LazyFrame):
-            return frame.collect_schema().keys()
+            return list(frame.collect_schema().keys())
+        else:
+            raise TypeError(f"Unsupported frame type: {type(frame)}")
 
 
-    _dfs = [
-        pl.DataFrame(
-            {
-                "table": table_name,
-                "variable": _get_columns(BASE_OUTPUTS[table_name]),
-            }
-        )
-        for table_name in BASE_OUTPUTS.keys()
-        if table_name not in _exclude_tables
-    ]
+    def _get_frame_dtypes(
+        frame: Union[gpd.GeoDataFrame, pl.LazyFrame],
+    ) -> List[str]:
+        """
+        Retrieve the data types (as strings) from a GeoDataFrame or LazyFrame.
 
-    # Concatenate all DataFrames and filter out rows where 'variable' ends with "_id"
-    all_columns_df = pl.concat(_dfs).filter(
-        ~pl.col("variable").str.ends_with("_id")
+        Args:
+            frame: A GeoDataFrame or LazyFrame object.
+
+        Returns:
+            A list of data types as strings.
+
+        Raises:
+            TypeError: If the frame type is not supported.
+        """
+        if isinstance(frame, gpd.GeoDataFrame):
+            return [str(dtype) for dtype in frame.dtypes]
+        elif isinstance(frame, pl.LazyFrame):
+            return [str(dtype) for dtype in frame.collect_schema().dtypes()]
+        else:
+            raise TypeError(f"Unsupported frame type: {type(frame)}")
+
+
+    def _build_columns_dataframe(base_outputs: Dict[str, Any]) -> pl.DataFrame:
+        """
+        Create a DataFrame that consolidates table names, their columns, and data types,
+        excluding any tables specified in _EXCLUDE_TABLES.
+
+        Args:
+            base_outputs: A dictionary mapping table names to GeoDataFrame or LazyFrame objects.
+
+        Returns:
+            A polars DataFrame with columns: 'table', 'column', and 'data_type'.
+        """
+        _dfs = []
+        for table_name, frame in base_outputs.items():
+            if table_name in _EXCLUDE_TABLES:
+                continue
+
+            columns = _get_frame_columns(frame)
+            dtypes = _get_frame_dtypes(frame)
+
+            # Create a DataFrame for each table where each row represents a column of the table
+            table_df = pl.DataFrame(
+                {
+                    "table": [table_name] * len(columns),
+                    "column": columns,
+                    "data_type": dtypes,
+                }
+            )
+            _dfs.append(table_df)
+
+        if _dfs:
+            return pl.concat(_dfs)
+        return pl.DataFrame({"table": [], "column": [], "data_type": []})
+
+
+    def _filter_columns(
+        df: pl.DataFrame, suffix: str = _COLUMN_SUFFIX_TO_FILTER
+    ) -> pl.DataFrame:
+        """
+        Filter out rows from the DataFrame where the 'column' name ends with a given suffix.
+
+        Args:
+            df: A polars DataFrame containing a 'column' field.
+            suffix: A string suffix to filter out (default is "_id").
+
+        Returns:
+            A filtered polars DataFrame.
+        """
+        return df.filter(~pl.col("column").str.ends_with(suffix))
+
+
+    def _build_model_result_filter_options(df: pl.DataFrame) -> List[str]:
+        """
+        Build a list of formatted string options from the DataFrame that include the table name,
+        data type, and column name.
+
+        Args:
+            df: A polars DataFrame with 'table', 'column', and 'data_type' fields.
+
+        Returns:
+            A list of formatted string options.
+        """
+        _table_list = df["table"].to_list()
+        _column_list = df["column"].to_list()
+        _dtype_list = df["data_type"].to_list()
+
+        return [
+            f"{_table_list[i]} ({_dtype_list[i]}): {_column_list[i]}"
+            for i in range(len(_column_list))
+        ]
+
+
+    _all_columns_df = _build_columns_dataframe(BASE_OUTPUTS)
+    _filtered_columns_df = _filter_columns(
+        _all_columns_df, _COLUMN_SUFFIX_TO_FILTER
     )
-
-    column_table = mo.ui.table(all_columns_df.to_pandas()).form()
-    return all_columns_df, column_table
+    MODEL_RESULT_FILTER_OPTIONS = _build_model_result_filter_options(
+        _filtered_columns_df
+    )
+    return (MODEL_RESULT_FILTER_OPTIONS,)
 
 
 @app.cell
-def filter_columns(column_table):
+def _(MODEL_RESULT_FILTER_OPTIONS, mo):
+    multiselect = mo.ui.multiselect(
+        options=MODEL_RESULT_FILTER_OPTIONS,
+        label="### \N{PINCHING HAND} Select variables for cross-tabulating the model results",
+        full_width=True,
+    ).form()
+    return (multiselect,)
+
+
+@app.cell
+def _(mo, multiselect):
+    mo.hstack(
+        [
+            multiselect,
+            mo.md(
+                f"**Currect selections**: <br> {'<br> '.join(multiselect.value) if multiselect.value is not None else None}"
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
+def filter_columns(multiselect):
     FILTER_COLUMNS = (
-        column_table.value["variable"].to_list()
-        if column_table.value is not None
+        [x.split(": ")[1] for x in multiselect.value]  # strip the table name
+        if multiselect.value is not None
         else None
     )
     return (FILTER_COLUMNS,)
