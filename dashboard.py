@@ -887,11 +887,16 @@ def assemble_model_diagnostics(
     ):
         if model_name.endswith(("_location", "_destination")):
             return generate_location_model_diagnostic(
-                base_lazy_df, proj_lazy_df, variable, fields, by_columns
+                base_lazy_df,
+                proj_lazy_df,
+                variable,
+                fields,
+                by_columns,
+                model_name,
             )
         else:
             return generate_general_model_diagnostic(
-                base_lazy_df, proj_lazy_df, variable, by_columns
+                base_lazy_df, proj_lazy_df, variable, by_columns, model_name
             )
 
 
@@ -987,6 +992,7 @@ def generate_general_model_diagnostic(
         proj: Optional[pl.LazyFrame],
         variable: str,
         by_columns: Optional[List[str]] = None,
+        model_name: str = None,
     ):
         """
         Generate diagnostic visuals and a table comparing aggregated Base and Project scenarios.
@@ -1056,7 +1062,7 @@ def generate_general_model_diagnostic(
             .sort(agg_cols)
         )
 
-        def _generate_formatted_table(df: pl.DataFrame):
+        def _generate_formatted_table(df: pl.DataFrame, variable: str):
             """Generate a formatted table with RMSE and MAPE metrics."""
             # Compute metrics: RMSE and MAPE
             metrics = df.select(
@@ -1078,6 +1084,7 @@ def generate_general_model_diagnostic(
             # Build the formatted table using GT
             return (
                 GT(df)
+                .tab_header(title=f"Model: {model_name}")
                 .tab_spanner(
                     label=md("**Share (%)**"), columns=cs.starts_with("share_")
                 )
@@ -1199,7 +1206,7 @@ def generate_general_model_diagnostic(
             {
                 "Share": _generate_figure("share"),
                 "Count": _generate_figure("len"),
-                "Table": _generate_formatted_table(agg_df_pivoted),
+                "Table": _generate_formatted_table(agg_df_pivoted, variable),
             }
         )
 
@@ -1423,6 +1430,7 @@ def generate_location_model_diagnostic(
         variable: str,
         fields: Dict,
         by_columns: Optional[List[str]] = None,
+        model_name: str = None,
     ):
         """
         Create a diagnostic UI for the location model with scatter and distance plots.
