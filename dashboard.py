@@ -161,7 +161,9 @@ def ui_folder_settings_form(mo, ui_folder_settings):
             value=r"example_data/mtc/project",
             full_width=True,
         ),
-    ).form()
+    )
+    if mo.running_in_notebook():
+        ui_folder_settings_form = ui_folder_settings_form.form()
     return (ui_folder_settings_form,)
 
 
@@ -257,7 +259,7 @@ def read_input_parquets(
 
     BASE_OUTPUTS = {
         name: _read_asim_output(base_dir, attrs)
-        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
+        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items() if os.path.exists(os.path.join(base_dir, attrs["filename"]))
     }
     PROJ_OUTPUTS = {
         name: _read_asim_output(proj_dir, attrs)
