@@ -161,7 +161,9 @@ def ui_folder_settings_form(mo, ui_folder_settings):
             value=r"example_data/mtc/project",
             full_width=True,
         ),
-    ).form()
+    )
+    if mo.running_in_notebook():
+        ui_folder_settings_form = ui_folder_settings_form.form()
     return (ui_folder_settings_form,)
 
 
