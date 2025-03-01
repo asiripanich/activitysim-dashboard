@@ -1164,6 +1164,9 @@ def generate_general_model_diagnostic(
             else:
                 raise ValueError(f"Invalid column specified: {col}")
 
+            facet_col = grouping_columns[0] if grouping_columns else None
+            facet_order = sorted(agg_df[facet_col].unique()) if facet_col is not None else None
+
             fig = px.bar(
                 agg_df,
                 x=variable,
@@ -1178,6 +1181,7 @@ def generate_general_model_diagnostic(
                 facet_col_wrap=4,
                 height=800,
                 title=f"x-axis: {variable}",
+                category_orders={facet_col: facet_order} if facet_col is not None else None,
             )
 
             # Use percentages in y-axis of all facets
