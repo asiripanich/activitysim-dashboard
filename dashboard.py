@@ -259,7 +259,7 @@ def read_input_parquets(
 
     BASE_OUTPUTS = {
         name: _read_asim_output(base_dir, attrs)
-        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
+        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items() if os.path.exists(os.path.join(base_dir, attrs["filename"]))
     }
     PROJ_OUTPUTS = {
         name: _read_asim_output(proj_dir, attrs)
