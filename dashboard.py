@@ -1173,7 +1173,7 @@ def generate_general_model_diagnostic(
                 text_auto = ".2%"
             elif col == "len":
                 labels = {"len": "Count"}
-                text_auto = ".3s"
+                text_auto = True
             else:
                 raise ValueError(f"Invalid column specified: {col}")
 
@@ -1427,8 +1427,10 @@ def generate_location_model_diagnostic(
             color="scenario",
             facet_col=grouping_columns[0] if grouping_columns else None,
             color_discrete_map=scenario_discrete_color_map,
+            hover_data=grouping_columns,
             facet_col_wrap=4,
             height=800,
+            text_auto=True,  # ".3s",
             title=f"x-axis: {skims_variable}",
         )
 
