@@ -24,7 +24,8 @@ def import_packages():
     import polars as pl
     import polars.selectors as cs
     import geopandas as gpd
-    from typing import Any, Dict, Optional
+    from typing import Any, Dict, Optional, Union, List
+    import plotly
     import plotly.express as px
     from great_tables import GT, style, loc, md, system_fonts
 
@@ -33,7 +34,9 @@ def import_packages():
         Any,
         Dict,
         GT,
+        List,
         Optional,
+        Union,
         cs,
         gpd,
         loc,
@@ -41,6 +44,7 @@ def import_packages():
         mo,
         os,
         pl,
+        plotly,
         px,
         style,
         system_fonts,
@@ -1238,6 +1242,7 @@ def generate_location_model_diagnostic(
     PROJ_OUTPUTS,
     mo,
     pl,
+    plotly,
     px,
     scenario_discrete_color_map,
 ):
@@ -1253,7 +1258,7 @@ def generate_location_model_diagnostic(
         scenario_color: str,
         scenario_name: str,
         by_columns: Optional[List[str]] = None,
-    ) -> px.Figure:
+    ) -> plotly.graph_objects.Figure:
         """
         Generate a scatter plot comparing aggregated counts to land use control values.
 
@@ -1367,7 +1372,7 @@ def generate_location_model_diagnostic(
         skims_variable: str,
         origin_zone_variable: str,
         by_columns: Optional[List[str]] = None,
-    ) -> px.Figure:
+    ) -> plotly.graph_objects.Figure:
         """
         Generate a bar plot comparing distance aggregations between scenarios.
 
