@@ -1180,12 +1180,13 @@ def generate_general_model_diagnostic(
                 title=f"x-axis: {variable}",
             )
 
+            # Use percentages in y-axis of all facets
             if col == "share":
-                fig.update_layout(yaxis=dict(tickformat=".0%"))
+                fig.for_each_yaxis(lambda axis: axis.update(tickformat=".0%"))
 
             # Remove x-axis titles from all facets
             fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
-
+        
             fig.update_layout(
                 legend=dict(
                     orientation="h",
