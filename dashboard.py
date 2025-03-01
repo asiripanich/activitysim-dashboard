@@ -175,7 +175,7 @@ def stop_if_form_not_submitted(mo, ui_folder_settings_form):
 
     mo.stop(
         ui_folder_settings_form.value is None,
-        mo.md("**Submit the form to continue.**"),
+        mo.md("**Submit the form to continue**"),
     )
     CHECK_INPUT_DIRS = True
     return (CHECK_INPUT_DIRS,)
@@ -1102,24 +1102,39 @@ def generate_general_model_diagnostic(
                 # between -0 to -10%
                 .tab_style(
                     style=style.text(color="#ff917a"),
-                    locations=loc.body(columns="pct_diff", rows=((pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)))
+                    locations=loc.body(
+                        columns="pct_diff",
+                        rows=(
+                            (pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)
+                        ),
+                    ),
                 )
                 # less than - 10%
                 .tab_style(
                     style=style.text(color="#ff5938"),
-                    locations=loc.body(columns="pct_diff", rows=pl.col("pct_diff") < -0.1)
+                    locations=loc.body(
+                        columns="pct_diff", rows=pl.col("pct_diff") < -0.1
+                    ),
                 )
                 # between 0 to 10%
                 .tab_style(
                     style=style.text(color="#7aa7ff"),
-                    locations=loc.body(columns="pct_diff", rows=((pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)))
+                    locations=loc.body(
+                        columns="pct_diff",
+                        rows=(
+                            (pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)
+                        ),
+                    ),
                 )
                 # more than 10%
                 .tab_style(
                     style=style.text(color="#216bff"),
-                    locations=loc.body(columns="pct_diff", rows=pl.col("pct_diff") > 0.1)
+                    locations=loc.body(
+                        columns="pct_diff", rows=pl.col("pct_diff") > 0.1
+                    ),
                 )
                 .cols_move(columns="pct_diff", after="diff")
+                .cols_move_to_start(columns=variable)
                 .cols_label(
                     share_Base=md("**Base**"),
                     share_Project=md("**Project**"),
@@ -1135,12 +1150,6 @@ def generate_general_model_diagnostic(
                     palette="YlGn",
                     na_color="lightgray",
                 )
-                # .data_color(
-                #     columns=["pct_diff"],
-                #     palette="RdBu",
-                #     domain=[-1.5, 1.5],
-                #     na_color="lightgray",
-                # )
                 .tab_style(
                     style=style.text(weight="bolder"),
                     locations=loc.column_header(),
