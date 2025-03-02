@@ -1294,6 +1294,9 @@ def generate_location_model_diagnostic(
         # Concatenate and collect the data into a DataFrame
         distance_df = pl.concat([base_distance, proj_distance]).collect()
 
+        facet_col = grouping_columns[0] if grouping_columns else None
+        facet_order = sorted(distance_df[facet_col].unique()) if facet_col is not None else None
+
         # Create the bar plot; conversion to pandas may be needed for Plotly Express
         fig = px.bar(
             distance_df,
@@ -1301,17 +1304,15 @@ def generate_location_model_diagnostic(
             y="count",
             barmode="group",
             color="scenario",
-            facet_col=grouping_columns[0] if grouping_columns else None,
+            facet_col=facet_col,
             color_discrete_map=scenario_discrete_color_map,
             hover_data=grouping_columns,
             facet_col_wrap=4,
             height=800,
             text_auto=True,  # ".3s",
             title=f"x-axis: {skims_variable}",
+            category_orders={facet_col: facet_order} if facet_col is not None else None,
         )
-
-        # Remove the variable name in the facet label
-        # fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
 
         # Remove x-axis titles from all facets
         fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
