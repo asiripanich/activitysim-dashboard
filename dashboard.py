@@ -1319,7 +1319,7 @@ def generate_location_model_diagnostic(
 
         fig.update_layout(font=dict(size=16))
 
-        return fig
+        return fig, distance_df
 
 
     def generate_location_model_diagnostic(
@@ -1378,7 +1378,7 @@ def generate_location_model_diagnostic(
             )
 
         # Build the 'Distance' tab with the bar plot
-        distance_tab = _generate_distance_plot(
+        distance_plot, distance_df = _generate_distance_plot(
             base_lazy_df=base_lazy_df,
             proj_lazy_df=proj_lazy_df,
             variable=variable,
@@ -1387,18 +1387,34 @@ def generate_location_model_diagnostic(
             by_columns=by_columns,
         )
 
+        # Determine grouping columns that exist in the base schema
+        base_schema = base_lazy_df.collect_schema().keys()
+        grouping_columns = (
+            [col for col in by_columns if col in base_schema and col != variable]
+            if by_columns
+            else []
+        )
+
+        agg_cols = [skims_variable] + grouping_columns
+        agg_cols = set(agg_cols)
+
+        pivoted_distance_df = pivot_aggregated_df(distance_df, agg_cols)
+        distance_table = generate_gt_table(pivoted_distance_df, skims_variable, model_name)
+
         # Combine the tabs into a single UI diagnostic object
         if land_use_control_variable is None:
             diagnostic_ui = mo.ui.tabs(
                 {
-                    "Distance": distance_tab,
+                    "Distance plot": distance_plot,
+                    "Distance table": distance_table,
                 }
             )
         else:
             diagnostic_ui = mo.ui.tabs(
                 {
                     "Differences to land use": differences_tab,
-                    "Distance": distance_tab,
+                    "Distance plot": distance_plot,
+                    "Distance table": distance_table,
                 }
             )
         return diagnostic_ui
