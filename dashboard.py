@@ -14,7 +14,7 @@
 import marimo
 
 __generated_with = "0.11.13"
-app = marimo.App(width="medium", app_title="ActivitySim dashboard")
+app = marimo.App(width="full", app_title="ActivitySim dashboard")
 
 
 @app.cell
@@ -1156,23 +1156,34 @@ def generate_location_model_diagnostic(
         """
         # Aggregate data and join with land use control data
         land_use_agg_df = (
-            lazy_df.group_by(variable)
-            .agg(pl.len().alias("count"))
-            .join(
-                scenario_outputs["land_use"].select(
+            scenario_outputs["land_use"].select(
                     "zone_id", land_use_control_variable
-                ),
-                left_on=variable,
-                right_on="zone_id",
+            )
+            .join(
+                lazy_df.group_by(variable).agg(pl.len().alias("count")),
+                right_on=variable,
+                left_on="zone_id",
                 how="full",
             )
-            .with_columns(count=pl.col("count"))
+            .drop(variable)
+            .rename({'zone_id': variable})
+            .with_columns(count=pl.col('count').fill_null(strategy="zero"))
             .with_columns(
                 relative_diff=(pl.col("count") / pl.col(land_use_control_variable))
                 - 1,
                 actual_diff=pl.col("count") - pl.col(land_use_control_variable),
             )
+            .sort(variable)
             .collect()
+        )
+
+        formatted_land_use_agg_df = (
+            land_use_agg_df
+            .with_columns(
+                (pl.col('relative_diff') * 100).round(2),
+                pl.col(land_use_control_variable, "actual_diff").round()
+            )
+            .rename({'relative_diff': "Relative Diff. (%)", 'actual_diff': 'Actual Diff.', 'count': 'Simulated', land_use_control_variable: f'Control ({land_use_control_variable})'})
         )
 
         # Create scatter plot with marginal histograms
@@ -1192,7 +1203,7 @@ def generate_location_model_diagnostic(
         )
         fig.update_layout(xaxis=dict(tickformat=".0%"), font=dict(size=16))
         fig.update_traces(marker=dict(color=scenario_color))
-        return fig
+        return mo.vstack([fig, formatted_land_use_agg_df])
 
 
     def _compute_distance_df(
