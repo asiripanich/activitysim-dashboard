@@ -152,13 +152,13 @@ def ui_folder_settings_form(mo, ui_folder_settings):
         base_dir=mo.ui.text(
             placeholder="Output folder...",
             label="**Base Folder** ",
-            value=r"example_data/mtc/base",
+            value=r"data/output_2018",
             full_width=True,
         ),
         proj_dir=mo.ui.text(
             placeholder="Output folder...",
             label="**Project Folder** ",
-            value=r"example_data/mtc/project",
+            value=r"data/output_2026",
             full_width=True,
         ),
     )
@@ -722,16 +722,16 @@ def models_settings(pl):
                 "table": "persons",
                 "result_field": "school_zone_id",
                 "filter_expr": pl.col("school_zone_id") > 0,
-                "skims_variable": "DIST",
-                "land_use_control_variable": "COLLFTE",
+                "skims_variable": "SOV_FREE_DISTANCE__AM",
+                "land_use_control_variable": "total_enrolment",
                 "origin_zone_variable": "home_zone_id",
             },
             "work_location": {
                 "table": "persons",
                 "result_field": "workplace_zone_id",
                 "filter_expr": pl.col("workplace_zone_id") > 0,
-                "skims_variable": "DIST",
-                "land_use_control_variable": "TOTEMP",
+                "skims_variable": "SOV_FREE_DISTANCE__AM",
+                "land_use_control_variable": "EMP_TOTAL",
                 "origin_zone_variable": "home_zone_id",
             },
             # 'business_location' is specific to Victoria's implementation
@@ -739,8 +739,8 @@ def models_settings(pl):
                 "table": "persons",
                 "result_field": "business_zone_id",
                 "filter_expr": pl.col("business_zone_id") > 0,
-                "skims_variable": "DIST",
-                "land_use_control_variable": "TOTEMP",
+                "skims_variable": "SOV_FREE_DISTANCE__AM",
+                "land_use_control_variable": "EMP_TOTAL",
                 "origin_zone_variable": "home_zone_id",
             },
             "telecommute_frequency": {
@@ -828,7 +828,7 @@ def models_settings(pl):
             "trip_destination": {
                 "table": "trips",
                 "result_field": "destination",
-                "skims_variable": "DIST",
+                "skims_variable": "SOV_FREE_DISTANCE__AM",
                 "origin_zone_variable": "origin",
             },
             "trip_mode": {
@@ -1047,7 +1047,7 @@ def generate_general_model_diagnostic(
                 text_auto = ".2%"
             elif col == "count":
                 labels = {"count": "Count"}
-                text_auto = True
+                text_auto = ".3s"
             else:
                 raise ValueError(f"Invalid column specified: {col}")
 
@@ -1195,6 +1195,7 @@ def generate_location_model_diagnostic(
             marginal_y="histogram",
             hover_data=[variable, "count", land_use_control_variable],
             height=800,
+            opacity=0.3,
             title=f"{scenario_name}",
             labels={
                 "actual_diff": "Actual difference",
@@ -1320,7 +1321,7 @@ def generate_location_model_diagnostic(
             hover_data=grouping_columns,
             facet_col_wrap=4,
             height=800,
-            text_auto=True,  # ".3s",
+            text_auto= ".3s",
             title=f"x-axis: {skims_variable}",
             category_orders={facet_col: facet_order} if facet_col is not None else None,
         )
