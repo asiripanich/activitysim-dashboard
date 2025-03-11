@@ -1453,6 +1453,7 @@ def generate_gt_table(GT, List, cs, loc, md, pl, style, system_fonts):
                     values=["count"],
                     aggregate_function="sum",
                 )
+                .with_columns(pl.col("Base", "Project").cast(pl.Int64))
                 .with_columns(
                     share_Base=pl.col("Base") / pl.col("Base").sum(),
                     share_Project=pl.col("Project") / pl.col("Project").sum(),
