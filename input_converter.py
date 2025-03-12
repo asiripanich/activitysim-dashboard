@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.11.8"
+__generated_with = "0.11.17"
 app = marimo.App(width="medium", app_title="Input Converter")
 
 
@@ -25,16 +25,29 @@ def _():
     import itertools
     import numpy as np
     import polars as pl
+    import polars.selectors as cs
     import openmatrix as omx
     import pyarrow as pa
     import pyarrow.parquet as pq
     import geopandas as gpd
-    return Path, gpd, itertools, mo, np, omx, os, pa, pl, pq
+    return Path, cs, gpd, itertools, mo, np, omx, os, pa, pl, pq
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""# Convert CSV, SHP, GeoJSON, and OMX files to Parquet format""")
+    mo.vstack([
+        mo.md(
+        rf"""
+        # Convert CSV, SHP, GeoJSON, and OMX files to Parquet format
+        """
+    )
+    ,
+        mo.callout(
+        """
+            Warning: For consistency, all zone ID columns will be automatically converted to the `pl.Int64` data type. This applies to any column named 'origin', 'destination', or any column with a name ending in 'zone_id'.
+    """
+    , kind='warn')
+    ])
     return
 
 
@@ -123,7 +136,7 @@ def _(ui_file_selector):
 
 
 @app.cell(hide_code=True)
-def _(Path, convert_omx, convert_shp, os, pl, pq):
+def _(Path, convert_omx, convert_shp, cs, os, pl, pq):
     def convert_input(input_file_info, output_directory, overwrite_output):
         input_file_extension = os.path.splitext(input_file_info.path)[1]
         input_path = input_file_info.path
@@ -137,7 +150,15 @@ def _(Path, convert_omx, convert_shp, os, pl, pq):
 
         if input_file_extension == ".csv":
             table = pl.read_csv(input_path)
-            table.write_parquet(output_path)
+            (
+                table
+                .with_columns(
+                    cs.ends_with("zone_id").cast(pl.Int64), 
+                    cs.matches('^destination$').cast(pl.Int64), 
+                    cs.matches('^origin$').cast(pl.Int64)
+                )
+                .write_parquet(output_path)
+            )
         elif input_file_extension in [".shp", ".geojson"]:
             convert_shp(input_path, output_path)
         elif input_file_extension == ".omx":
@@ -175,8 +196,8 @@ def convert_omx(itertools, np, omx, pa):
             od_pairs = list(
                 itertools.product(range(1, zones + 1), range(1, zones + 1))
             )
-            origins = np.array([t[0] for t in od_pairs], dtype=np.int32)
-            destinations = np.array([t[1] for t in od_pairs], dtype=np.int32)
+            origins = np.array([t[0] for t in od_pairs], dtype=np.int64)
+            destinations = np.array([t[1] for t in od_pairs], dtype=np.int64)
             table_contents = {
                 "origin": origins,
                 "destination": destinations,
@@ -254,32 +275,34 @@ def _(
         ):
             _ui_callout = mo.md("")
         elif output_directory_exists and len(input_file_infos) > 0:
-            for input_file_info in mo.status.progress_bar(
-                input_file_infos,
-                title="\N{HATCHING CHICK} Converting",
-                subtitle="Please wait",
+            with mo.status.progress_bar(
+                total=len(input_file_infos),
                 show_eta=False,
                 show_rate=False,
-                remove_on_exit=False,
-            ):
-                _msgs.append(
-                    convert_input(
-                        input_file_info,
-                        output_directory=output_directory,
-                        overwrite_output=overwrite_output,
+            ) as bar:
+                for input_file_info in input_file_infos:
+                    bar.update(
+                        title=f"\N{HATCHING CHICK} Converting {input_file_info.name}"
                     )
-                )
-                _ui_callout = mo.callout(
-                    mo.vstack(
-                        [
-                            mo.md(_msg)
-                            for _msg in ["##  \N{ORANGE HEART} Converted:"] + _msgs
-                        ],
-                        gap=0,
-                        justify="end",
-                    ),
-                    kind="success",
-                )
+                    _msgs.append(
+                        convert_input(
+                            input_file_info,
+                            output_directory=output_directory,
+                            overwrite_output=overwrite_output,
+                        )
+                    )
+                    _ui_callout = mo.callout(
+                        mo.vstack(
+                            [
+                                mo.md(_msg)
+                                for _msg in ["##  \N{ORANGE HEART} Converted:"]
+                                + _msgs
+                            ],
+                            gap=0,
+                            justify="end",
+                        ),
+                        kind="success",
+                    )
         elif len(input_file_infos) == 0:
             _ui_callout = mo.callout(
                 mo.md(
@@ -306,7 +329,7 @@ def _(
         )
 
     _ui_callout
-    return (input_file_info,)
+    return bar, input_file_info
 
 
 if __name__ == "__main__":
