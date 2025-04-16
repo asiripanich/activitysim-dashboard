@@ -65,8 +65,12 @@ def upload_configs(mo):
 
 
 @app.cell
-def read_configs(tomllib, upload_configs):
-    CONFIGS = tomllib.loads(upload_configs.value[0].contents.decode())
+def read_configs(mo, tomllib, upload_configs):
+    if mo.running_in_notebook():
+        CONFIGS = tomllib.loads(upload_configs.value[0].contents.decode())
+    else:
+        with open("dashboard-configs.toml", "rb") as _file:
+            CONFIGS = tomllib.load(_file)
     MODELS = CONFIGS["models"]
     return CONFIGS, MODELS
 
