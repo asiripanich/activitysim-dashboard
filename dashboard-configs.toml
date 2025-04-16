@@ -1,0 +1,127 @@
+[dashboard]
+title = "Example ActivitySim dashboard"
+
+[base]
+directory = "example_data/mtc/base"
+
+[project]
+directory = "example_data/mtc/project"
+
+[models.household_person.auto_ownership]
+table = "households"
+result_field = "auto_ownership"
+
+[models.household_person.work_from_home]
+table = "persons"
+result_field = "work_from_home"
+
+[models.household_person.free_parking_at_work]
+table = "persons"
+result_field = "free_parking_at_work"
+
+[models.household_person.school_location]
+table = "persons"
+result_field = "school_zone_id"
+filter_expr = "SELECT * FROM self WHERE school_zone_id > 0"
+skims_variable = "DIST"
+land_use_control_variable = "COLLFTE"
+origin_zone_variable = "home_zone_id"
+
+[models.household_person.work_location]
+table = "persons"
+result_field = "workplace_zone_id"
+filter_expr = "SELECT * FROM self WHERE workplace_zone_id > 0"
+skims_variable = "DIST"
+land_use_control_variable = "TOTEMP"
+origin_zone_variable = "home_zone_id"
+
+[models.household_person.telecommute_frequency]
+table = "persons"
+result_field = "telecommute_frequency"
+
+[models.household_person.transit_pass_ownership]
+table = "persons"
+result_field = "transit_pass_ownership"
+
+[models.household_person.transit_pass_subsidy]
+table = "persons"
+result_field = "transit_pass_subsidy"
+
+[models.household_person.cdap_simulate]
+table = "persons"
+result_field = "cdap_activity"
+
+[models.tour.mandatory_tour_frequency]
+table = "persons"
+result_field = "mandatory_tour_frequency"
+filter_expr = "SELECT * FROM self WHERE mandatory_tour_frequency != ''"
+
+[models.tour.mandatory_tour_scheduling]
+table = "tours"
+result_field = [ "start", "end", "duration" ]
+filter_expr = "SELECT * FROM self WHERE tour_category == 'mandatory'"
+
+[models.tour.joint_tour_composition]
+table = "tours"
+result_field = "composition"
+filter_expr = "SELECT * FROM self WHERE composition != ''"
+
+[models.tour.joint_tour_participation]
+table = "tours"
+result_field = "number_of_participants"
+
+[models.tour.joint_tour_scheduling]
+table = "tours"
+result_field = [ "start", "end", "duration" ]
+filter_expr = "SELECT * FROM self WHERE tour_category == 'joint'"
+
+[models.tour.non_mandatory_tour_frequency]
+table = "persons"
+result_field = "non_mandatory_tour_frequency"
+filter_expr = "SELECT * FROM self WHERE non_mandatory_tour_frequency != 0"
+
+[models.tour.non_mandatory_tour_scheduling]
+table = "tours"
+result_field = [ "start", "end", "duration" ]
+filter_expr = "SELECT * FROM self WHERE tour_category == 'non_mandatory'"
+
+[models.tour.atwork_subtour_frequency]
+table = "persons"
+result_field = "atwork_subtour_frequency"
+filter_expr = "SELECT * FROM self WHERE atwork_subtour_frequency != ''"
+
+[models.tour.atwork_subtour_scheduling]
+table = "tours"
+result_field = [ "start", "end", "duration" ]
+filter_expr = "SELECT * FROM self WHERE tour_category == 'atwork'"
+
+[models.tour.atwork_subtour_mode_choice]
+table = "tours"
+result_field = "tour_mode"
+filter_expr = "SELECT * FROM self WHERE tour_category == 'atwork'"
+
+[models.tour.tour_mode_choice_simulate]
+table = "tours"
+result_field = "tour_mode"
+
+[models.tour.stop_frequency]
+table = "tours"
+result_field = "stop_frequency"
+
+[models.trip.trip_departure_choice]
+table = "trips"
+result_field = "depart"
+
+[models.trip.trip_purpose]
+table = "trips"
+result_field = "purpose"
+
+[models.trip.trip_destination]
+table = "trips"
+result_field = "destination"
+skims_variable = "DIST"
+origin_zone_variable = "origin"
+
+[models.trip.trip_mode]
+table = "trips"
+result_field = "trip_mode"

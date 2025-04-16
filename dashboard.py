@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.11.13"
+__generated_with = "0.12.9"
 app = marimo.App(width="full", app_title="ActivitySim dashboard")
 
 
@@ -28,6 +28,7 @@ def import_packages():
     import plotly
     import plotly.express as px
     from great_tables import GT, style, loc, md, system_fonts
+    import tomllib
 
     pl.enable_string_cache()
     return (
@@ -48,13 +49,32 @@ def import_packages():
         px,
         style,
         system_fonts,
+        tomllib,
     )
 
 
 @app.cell
-def ui_title(mo):
+def upload_configs(mo):
+    upload_configs = mo.ui.file(
+        filetypes=[".toml"],
+        multiple=False,
+        label="### \N{WHITE RIGHT POINTING BACKHAND INDEX} Click to upload your dashboard configuration file",
+    )
+    upload_configs
+    return (upload_configs,)
+
+
+@app.cell
+def read_configs(tomllib, upload_configs):
+    CONFIGS = tomllib.loads(upload_configs.value[0].contents.decode())
+    MODELS = CONFIGS["models"]
+    return CONFIGS, MODELS
+
+
+@app.cell
+def ui_title(CONFIGS, mo):
     mo.hstack(
-        [mo.md("# ActivitySim dashboard")],
+        [mo.md(f"# {CONFIGS['dashboard']['title']}")],
         justify="end",
     )
     return
@@ -147,18 +167,18 @@ def ui_folder_settings(mo):
 
 
 @app.cell
-def ui_folder_settings_form(mo, ui_folder_settings):
+def ui_folder_settings_form(CONFIGS, mo, ui_folder_settings):
     ui_folder_settings_form = ui_folder_settings.batch(
         base_dir=mo.ui.text(
             placeholder="Output folder...",
             label="**Base Folder** ",
-            value=r"example_data/mtc/base",
+            value=rf"{CONFIGS['base']['directory']}",
             full_width=True,
         ),
         proj_dir=mo.ui.text(
             placeholder="Output folder...",
             label="**Project Folder** ",
-            value=r"example_data/mtc/project",
+            value=rf"{CONFIGS['project']['directory']}",
             full_width=True,
         ),
     )
@@ -703,144 +723,6 @@ def filter_columns(multiselect):
 
 
 @app.cell
-def models_settings(pl):
-    MODELS = {
-        "household_person": {
-            "auto_ownership": {
-                "table": "households",
-                "result_field": "auto_ownership",
-            },
-            "work_from_home": {
-                "table": "persons",
-                "result_field": "work_from_home",
-            },
-            "free_parking_at_work": {
-                "table": "persons",
-                "result_field": "free_parking_at_work",
-            },
-            "school_location": {
-                "table": "persons",
-                "result_field": "school_zone_id",
-                "filter_expr": pl.col("school_zone_id") > 0,
-                "skims_variable": "DIST",
-                "land_use_control_variable": "COLLFTE",
-                "origin_zone_variable": "home_zone_id",
-            },
-            "work_location": {
-                "table": "persons",
-                "result_field": "workplace_zone_id",
-                "filter_expr": pl.col("workplace_zone_id") > 0,
-                "skims_variable": "DIST",
-                "land_use_control_variable": "TOTEMP",
-                "origin_zone_variable": "home_zone_id",
-            },
-            # 'business_location' is specific to Victoria's implementation
-            "business_location": {
-                "table": "persons",
-                "result_field": "business_zone_id",
-                "filter_expr": pl.col("business_zone_id") > 0,
-                "skims_variable": "DIST",
-                "land_use_control_variable": "TOTEMP",
-                "origin_zone_variable": "home_zone_id",
-            },
-            "telecommute_frequency": {
-                "table": "persons",
-                "result_field": "telecommute_frequency",
-            },
-            "transit_pass_ownership": {
-                "table": "persons",
-                "result_field": "transit_pass_ownership",
-            },
-            "transit_pass_subsidy": {
-                "table": "persons",
-                "result_field": "transit_pass_subsidy",
-            },
-            "cdap_simulate": {"table": "persons", "result_field": "cdap_activity"},
-        },
-        "tour": {
-            "mandatory_tour_frequency": {
-                "table": "persons",
-                "result_field": "mandatory_tour_frequency",
-                "filter_expr": pl.col("mandatory_tour_frequency") != "",
-            },
-            "mandatory_tour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "mandatory",
-            },
-            "joint_tour_composition": {
-                "table": "tours",
-                "result_field": "composition",
-                "filter_expr": pl.col("composition") != "",
-            },
-            "joint_tour_participation": {
-                "table": "tours",
-                "result_field": "number_of_participants",
-            },
-            "joint_tour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "joint",
-            },
-            "non_mandatory_tour_frequency": {
-                "table": "persons",
-                "result_field": "non_mandatory_tour_frequency",
-                "filter_expr": pl.col("non_mandatory_tour_frequency") != 0,
-            },
-            "non_mandatory_tour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "non_mandatory",
-            },
-            "atwork_subtour_frequency": {
-                "table": "persons",
-                "result_field": "atwork_subtour_frequency",
-                "filter_expr": pl.col("atwork_subtour_frequency") != "",
-            },
-            "atwork_subtour_scheduling": {
-                "table": "tours",
-                "result_field": ["start", "end", "duration"],
-                "filter_expr": pl.col("tour_category") == "atwork",
-            },
-            "atwork_subtour_mode_choice": {
-                "table": "tours",
-                "result_field": "tour_mode",
-                "filter_expr": pl.col("tour_category") == "atwork",
-            },
-            "tour_mode_choice_simulate": {
-                "table": "tours",
-                "result_field": "tour_mode",
-            },
-            "stop_frequency": {
-                "table": "tours",
-                "result_field": "stop_frequency",
-            },
-        },
-        "trip": {
-            "trip_departure_choice": {
-                "table": "trips",
-                "result_field": "depart",
-            },
-            "trip_purpose": {
-                "table": "trips",
-                "result_field": "purpose",
-            },
-            "trip_destination": {
-                "table": "trips",
-                "result_field": "destination",
-                "skims_variable": "DIST",
-                "origin_zone_variable": "origin",
-            },
-            "trip_mode": {
-                "table": "trips",
-                "result_field": "trip_mode",
-            },
-        },
-    }
-    return (MODELS,)
-
-
-@app.cell
 def assemble_model_diagnostics(
     BASE_OUTPUTS,
     FILTER_COLUMNS,
@@ -859,8 +741,8 @@ def assemble_model_diagnostics(
         filter_expr = fields.get("filter_expr")
 
         if filter_expr is not None:
-            base_lazy_df = base_lazy_df.filter(filter_expr)
-            proj_lazy_df = proj_lazy_df.filter(filter_expr)
+            base_lazy_df = base_lazy_df.sql(filter_expr)
+            proj_lazy_df = proj_lazy_df.sql(filter_expr)
 
         # Ensure result_field is always a list for iteration.
         result_fields = fields["result_field"]
