@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.12.9"
+__generated_with = "0.12.10"
 app = marimo.App(width="full", app_title="ActivitySim dashboard")
 
 
@@ -105,14 +105,7 @@ def input_settings(INPUT_DIRS_EXIST, mo, ui_folder_settings_form):
     )
 
     proj_dir = ui_folder_settings_form.value.get("proj_dir")
-
-    params_dir = mo.ui.text(
-        placeholder="Parameter YAML file..",
-        label="**Parameter YAML file** ",
-        value=r"example_data/mtc/params.yaml",
-        full_width=True,
-    )
-    return base_dir, base_label, params_dir, proj_dir, proj_label
+    return base_dir, base_label, proj_dir, proj_label
 
 
 @app.cell
@@ -283,7 +276,8 @@ def read_input_parquets(
 
     BASE_OUTPUTS = {
         name: _read_asim_output(base_dir, attrs)
-        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items() if os.path.exists(os.path.join(base_dir, attrs["filename"]))
+        for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
+        if os.path.exists(os.path.join(base_dir, attrs["filename"]))
     }
     PROJ_OUTPUTS = {
         name: _read_asim_output(proj_dir, attrs)
@@ -938,7 +932,11 @@ def generate_general_model_diagnostic(
                 raise ValueError(f"Invalid column specified: {col}")
 
             facet_col = grouping_columns[0] if grouping_columns else None
-            facet_order = sorted(agg_df[facet_col].unique()) if facet_col is not None else None
+            facet_order = (
+                sorted(agg_df[facet_col].unique())
+                if facet_col is not None
+                else None
+            )
 
             fig = px.bar(
                 agg_df,
@@ -954,7 +952,9 @@ def generate_general_model_diagnostic(
                 facet_col_wrap=4,
                 height=800,
                 title=f"x-axis: {variable}",
-                category_orders={facet_col: facet_order} if facet_col is not None else None,
+                category_orders={facet_col: facet_order}
+                if facet_col is not None
+                else None,
             )
 
             # Use percentages in y-axis of all facets
@@ -1042,9 +1042,8 @@ def generate_location_model_diagnostic(
         """
         # Aggregate data and join with land use control data
         land_use_agg_df = (
-            scenario_outputs["land_use"].select(
-                    "zone_id", land_use_control_variable
-            )
+            scenario_outputs["land_use"]
+            .select("zone_id", land_use_control_variable)
             .join(
                 lazy_df.group_by(variable).agg(pl.len().alias("count")),
                 right_on=variable,
@@ -1052,8 +1051,8 @@ def generate_location_model_diagnostic(
                 how="full",
             )
             .drop(variable)
-            .rename({'zone_id': variable})
-            .with_columns(count=pl.col('count').fill_null(strategy="zero"))
+            .rename({"zone_id": variable})
+            .with_columns(count=pl.col("count").fill_null(strategy="zero"))
             .with_columns(
                 relative_diff=(pl.col("count") / pl.col(land_use_control_variable))
                 - 1,
@@ -1063,13 +1062,16 @@ def generate_location_model_diagnostic(
             .collect()
         )
 
-        formatted_land_use_agg_df = (
-            land_use_agg_df
-            .with_columns(
-                (pl.col('relative_diff') * 100).round(2),
-                pl.col(land_use_control_variable, "actual_diff").round()
-            )
-            .rename({'relative_diff': "Relative Diff. (%)", 'actual_diff': 'Actual Diff.', 'count': 'Simulated', land_use_control_variable: f'Control ({land_use_control_variable})'})
+        formatted_land_use_agg_df = land_use_agg_df.with_columns(
+            (pl.col("relative_diff") * 100).round(2),
+            pl.col(land_use_control_variable, "actual_diff").round(),
+        ).rename(
+            {
+                "relative_diff": "Relative Diff. (%)",
+                "actual_diff": "Actual Diff.",
+                "count": "Simulated",
+                land_use_control_variable: f"Control ({land_use_control_variable})",
+            }
         )
 
         # Create scatter plot with marginal histograms
@@ -1192,7 +1194,11 @@ def generate_location_model_diagnostic(
         distance_df = pl.concat([base_distance, proj_distance]).collect()
 
         facet_col = grouping_columns[0] if grouping_columns else None
-        facet_order = sorted(distance_df[facet_col].unique()) if facet_col is not None else None
+        facet_order = (
+            sorted(distance_df[facet_col].unique())
+            if facet_col is not None
+            else None
+        )
 
         # Create the bar plot; conversion to pandas may be needed for Plotly Express
         fig = px.bar(
@@ -1208,7 +1214,9 @@ def generate_location_model_diagnostic(
             height=800,
             text_auto=True,  # ".3s",
             title=f"x-axis: {skims_variable}",
-            category_orders={facet_col: facet_order} if facet_col is not None else None,
+            category_orders={facet_col: facet_order}
+            if facet_col is not None
+            else None,
         )
 
         # Remove x-axis titles from all facets
@@ -1296,7 +1304,9 @@ def generate_location_model_diagnostic(
         agg_cols = set(agg_cols)
 
         pivoted_distance_df = pivot_aggregated_df(distance_df, agg_cols)
-        distance_table = generate_gt_table(pivoted_distance_df, skims_variable, model_name)
+        distance_table = generate_gt_table(
+            pivoted_distance_df, skims_variable, model_name
+        )
 
         # Combine the tabs into a single UI diagnostic object
         if land_use_control_variable is None:
@@ -1321,134 +1331,132 @@ def generate_location_model_diagnostic(
 @app.cell
 def generate_gt_table(GT, List, cs, loc, md, pl, style, system_fonts):
     def compute_aggregated_df(
-            lazy_df: pl.LazyFrame, group_cols: List[str]
-        ) -> pl.DataFrame:
-            """Aggregate the LazyFrame by the provided group columns."""
-            return (
-                lazy_df.group_by(group_cols)
-                .agg(count=pl.len().cast(pl.Int64))
-                .collect()
-            )
+        lazy_df: pl.LazyFrame, group_cols: List[str]
+    ) -> pl.DataFrame:
+        """Aggregate the LazyFrame by the provided group columns."""
+        return (
+            lazy_df.group_by(group_cols)
+            .agg(count=pl.len().cast(pl.Int64))
+            .collect()
+        )
 
 
-    def pivot_aggregated_df(agg_df: pl.DataFrame, agg_cols: List[str]) -> pl.DataFrame:
+    def pivot_aggregated_df(
+        agg_df: pl.DataFrame, agg_cols: List[str]
+    ) -> pl.DataFrame:
         return (
             agg_df.pivot(
-                    index=agg_cols,
-                    on="scenario",
-                    values=["count"],
-                    aggregate_function="sum",
-                )
-                .with_columns(pl.col("Base", "Project").cast(pl.Int64))
-                .with_columns(
-                    share_Base=pl.col("Base") / pl.col("Base").sum(),
-                    share_Project=pl.col("Project") / pl.col("Project").sum(),
-                    diff=pl.col("Project") - pl.col("Base"),
-                )
-                .with_columns(pct_diff=pl.col("diff") / pl.col("Base"))
-                .rename({"Base": "count_Base", "Project": "count_Project"})
-                .sort(agg_cols)
+                index=agg_cols,
+                on="scenario",
+                values=["count"],
+                aggregate_function="sum",
+            )
+            .with_columns(pl.col("Base", "Project").cast(pl.Int64))
+            .with_columns(
+                share_Base=pl.col("Base") / pl.col("Base").sum(),
+                share_Project=pl.col("Project") / pl.col("Project").sum(),
+                diff=pl.col("Project") - pl.col("Base"),
+            )
+            .with_columns(pct_diff=pl.col("diff") / pl.col("Base"))
+            .rename({"Base": "count_Base", "Project": "count_Project"})
+            .sort(agg_cols)
         )
 
 
     def generate_gt_table(df: pl.DataFrame, variable: str, table_title: str = ""):
-                """Generate a formatted table with RMSE and MAPE metrics."""
-                # Compute metrics: RMSE and MAPE
-                metrics = df.select(
-                    rmse=((pl.col("count_Project") - pl.col("count_Base")) ** 2)
-                    .mean()
-                    .sqrt()
-                    .round(2),
-                    mape=(
-                        (
-                            (pl.col("count_Project") - pl.col("count_Base")).abs()
-                            / pl.col("count_Base")
-                        ).mean()
-                        * 100
-                    ).round(1),
-                )
-                rmse = metrics["rmse"].item()
-                mape = metrics["mape"].item()
+        """Generate a formatted table with RMSE and MAPE metrics."""
+        # Compute metrics: RMSE and MAPE
+        metrics = df.select(
+            rmse=((pl.col("count_Project") - pl.col("count_Base")) ** 2)
+            .mean()
+            .sqrt()
+            .round(2),
+            mape=(
+                (
+                    (pl.col("count_Project") - pl.col("count_Base")).abs()
+                    / pl.col("count_Base")
+                ).mean()
+                * 100
+            ).round(1),
+        )
+        rmse = metrics["rmse"].item()
+        mape = metrics["mape"].item()
 
-                # Build the formatted table using GT
-                return (
-                    GT(df)
-                    .tab_header(title=f"Model: {table_title}")
-                    .tab_spanner(
-                        label=md("**Share (%)**"), columns=cs.starts_with("share_")
-                    )
-                    .tab_spanner(
-                        label=md("**Count**"), columns=[cs.starts_with("count_"), "diff"]
-                    )
-                    .tab_style(
-                        style=[
-                            style.fill(color="#edf0ee"),
-                        ],
-                        locations=loc.column_header(),
-                    )
-                    # Conditional formatting ----------
-                    # between -0 to -10%
-                    .tab_style(
-                        style=style.text(color="#ff917a"),
-                        locations=loc.body(
-                            columns="pct_diff",
-                            rows=(
-                                (pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)
-                            ),
-                        ),
-                    )
-                    # less than - 10%
-                    .tab_style(
-                        style=style.text(color="#ff5938"),
-                        locations=loc.body(
-                            columns="pct_diff", rows=pl.col("pct_diff") < -0.1
-                        ),
-                    )
-                    # between 0 to 10%
-                    .tab_style(
-                        style=style.text(color="#7aa7ff"),
-                        locations=loc.body(
-                            columns="pct_diff",
-                            rows=(
-                                (pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)
-                            ),
-                        ),
-                    )
-                    # more than 10%
-                    .tab_style(
-                        style=style.text(color="#216bff"),
-                        locations=loc.body(
-                            columns="pct_diff", rows=pl.col("pct_diff") > 0.1
-                        ),
-                    )
-                    .cols_move(columns="pct_diff", after="diff")
-                    .cols_move_to_start(columns=variable)
-                    .cols_label(
-                        share_Base=md("**Base**"),
-                        share_Project=md("**Project**"),
-                        count_Base=md("**Base**"),
-                        count_Project=md("**Project**"),
-                        diff=md("**Difference***"),
-                        pct_diff=md("% **Difference**"),
-                    )
-                    .fmt_percent(columns=[cs.starts_with("share_"), "pct_diff"])
-                    .fmt_integer(columns=[cs.starts_with("count_"), "diff"])
-                    .data_color(
-                        columns=["share_Project", "share_Base"],
-                        palette="YlGn",
-                        na_color="lightgray",
-                    )
-                    .tab_style(
-                        style=style.text(weight="bolder"),
-                        locations=loc.column_header(),
-                    )
-                    .tab_source_note(
-                        source_note=md(
-                            f"**Summary Statistics** - RMSE: {rmse}, MAPE: {mape}% \\\n *Difference = Project - Base"
-                        )
-                    )
-                    .tab_options(table_font_names=system_fonts("industrial"))
+        # Build the formatted table using GT
+        return (
+            GT(df)
+            .tab_header(title=f"Model: {table_title}")
+            .tab_spanner(
+                label=md("**Share (%)**"), columns=cs.starts_with("share_")
+            )
+            .tab_spanner(
+                label=md("**Count**"), columns=[cs.starts_with("count_"), "diff"]
+            )
+            .tab_style(
+                style=[
+                    style.fill(color="#edf0ee"),
+                ],
+                locations=loc.column_header(),
+            )
+            # Conditional formatting ----------
+            # between -0 to -10%
+            .tab_style(
+                style=style.text(color="#ff917a"),
+                locations=loc.body(
+                    columns="pct_diff",
+                    rows=((pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)),
+                ),
+            )
+            # less than - 10%
+            .tab_style(
+                style=style.text(color="#ff5938"),
+                locations=loc.body(
+                    columns="pct_diff", rows=pl.col("pct_diff") < -0.1
+                ),
+            )
+            # between 0 to 10%
+            .tab_style(
+                style=style.text(color="#7aa7ff"),
+                locations=loc.body(
+                    columns="pct_diff",
+                    rows=((pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)),
+                ),
+            )
+            # more than 10%
+            .tab_style(
+                style=style.text(color="#216bff"),
+                locations=loc.body(
+                    columns="pct_diff", rows=pl.col("pct_diff") > 0.1
+                ),
+            )
+            .cols_move(columns="pct_diff", after="diff")
+            .cols_move_to_start(columns=variable)
+            .cols_label(
+                share_Base=md("**Base**"),
+                share_Project=md("**Project**"),
+                count_Base=md("**Base**"),
+                count_Project=md("**Project**"),
+                diff=md("**Difference***"),
+                pct_diff=md("% **Difference**"),
+            )
+            .fmt_percent(columns=[cs.starts_with("share_"), "pct_diff"])
+            .fmt_integer(columns=[cs.starts_with("count_"), "diff"])
+            .data_color(
+                columns=["share_Project", "share_Base"],
+                palette="YlGn",
+                na_color="lightgray",
+            )
+            .tab_style(
+                style=style.text(weight="bolder"),
+                locations=loc.column_header(),
+            )
+            .tab_source_note(
+                source_note=md(
+                    f"**Summary Statistics** - RMSE: {rmse}, MAPE: {mape}% \\\n *Difference = Project - Base"
                 )
+            )
+            .tab_options(table_font_names=system_fonts("industrial"))
+        )
     return compute_aggregated_df, generate_gt_table, pivot_aggregated_df
 
 
