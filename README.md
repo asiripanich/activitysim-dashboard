@@ -102,7 +102,7 @@ Models are grouped into three sections. You can place any sub-model under any ca
 
 #### Example: At-work Tour Mode Choice
 
-To understand the building blocks of a sub-model in the dashboard, let's take a look at the `atwork_subtour_mode_choice` sub-model as an example. As `atwork_subtour_mode_choice` is a tour-level decision, it is placed under `models.atwork_subtour_mode_choice`. The sub-model configuration is defined as follows:
+To understand the building blocks of a sub-model in the dashboard, let's take a look at the `atwork_subtour_mode_choice` sub-model as an example. As `atwork_subtour_mode_choice` is a tour-level decision, it is placed under `models.tour`. The sub-model configuration is defined as follows:
 
 ```toml
 [models.tour.atwork_subtour_mode_choice]
