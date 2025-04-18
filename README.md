@@ -129,7 +129,7 @@ table = "persons"
 result_field = "ptype"
 ```
 
-This configuration will add a new section under `households_persons` inside the dashboard called `ptype` that compares the `ptype` field between the base and project scenarios.
+This configuration will add a new section under `household_person` inside the dashboard called `ptype` that compares the `ptype` field between the base and project scenarios.
 
 #### Example: Location Models
 
