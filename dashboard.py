@@ -14,11 +14,11 @@
 
 import marimo
 
-__generated_with = "0.12.10"
-app = marimo.App(width="full", app_title="ActivitySim dashboard")
+__generated_with = "0.13.15"
+app = marimo.App(width="medium", app_title="ActivitySim dashboard")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def import_packages():
     import marimo as mo
     import os
@@ -56,7 +56,7 @@ def import_packages():
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def upload_configs(mo):
     upload_configs = mo.ui.file(
         filetypes=[".toml"],
@@ -67,7 +67,7 @@ def upload_configs(mo):
     return (upload_configs,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def read_configs(mo, tomllib, upload_configs):
     if mo.running_in_notebook():
         CONFIGS = tomllib.loads(upload_configs.value[0].contents.decode())
@@ -78,7 +78,7 @@ def read_configs(mo, tomllib, upload_configs):
     return CONFIGS, MODELS
 
 
-@app.cell
+@app.cell(hide_code=True)
 def ui_title(CONFIGS, mo):
     mo.hstack(
         [mo.md(f"# {CONFIGS['dashboard']['title']}")],
@@ -87,13 +87,13 @@ def ui_title(CONFIGS, mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def scenario_colors():
     scenario_discrete_color_map = {"Base": "#bac5c5", "Project": "#119992"}
     return (scenario_discrete_color_map,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def input_settings(INPUT_DIRS_EXIST, mo, ui_folder_settings_form):
     INPUT_DIRS_EXIST
 
@@ -108,34 +108,34 @@ def input_settings(INPUT_DIRS_EXIST, mo, ui_folder_settings_form):
     )
 
     proj_dir = ui_folder_settings_form.value.get("proj_dir")
-    return base_dir, base_label, proj_dir, proj_label
+    return base_dir, proj_dir
 
 
-@app.cell
+@app.cell(hide_code=True)
 def banner_html_code(mo):
     mo.md(
         r"""
-        <head>
-          <meta charset="UTF-8" />
-          <style>
-            .take-challenge-btn {
-              background: linear-gradient(to right, #bac5c5, #26d0ce);
-              border: none;
-              border-radius: 4px;
-              color: #ffffff;
-              padding: 10px 20px;
-              min-width: 530px;
-              max-height: 60px;
-              align-items: center;
-            }
-          </style>
-        </head>
-        """
+    <head>
+      <meta charset="UTF-8" />
+      <style>
+        .take-challenge-btn {
+          background: linear-gradient(to right, #bac5c5, #26d0ce);
+          border: none;
+          border-radius: 4px;
+          color: #ffffff;
+          padding: 10px 20px;
+          min-width: 530px;
+          max-height: 60px;
+          align-items: center;
+        }
+      </style>
+    </head>
+    """
     )
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def banner(mo, scenario_discrete_color_map):
     ui_banner = mo.hstack(
         [
@@ -152,13 +152,13 @@ def banner(mo, scenario_discrete_color_map):
     return (ui_banner,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def ui_banner(ui_banner):
     ui_banner
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def ui_folder_settings(mo):
     ui_folder_settings = mo.hstack(
         [mo.md("{base_dir}"), mo.md("{proj_dir}")], widths="equal"
@@ -166,7 +166,7 @@ def ui_folder_settings(mo):
     return (ui_folder_settings,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def ui_folder_settings_form(CONFIGS, mo, ui_folder_settings):
     ui_folder_settings_form = ui_folder_settings.batch(
         base_dir=mo.ui.text(
@@ -193,7 +193,7 @@ def ui_folder_settings_form_display(ui_folder_settings_form):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def stop_if_form_not_submitted(mo, ui_folder_settings_form):
     """
     Stop execution if the folder settings form has not been submitted.
@@ -207,7 +207,7 @@ def stop_if_form_not_submitted(mo, ui_folder_settings_form):
     return (CHECK_INPUT_DIRS,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def check_input_dirs(Any, CHECK_INPUT_DIRS, mo, os, ui_folder_settings_form):
     CHECK_INPUT_DIRS
 
@@ -232,7 +232,7 @@ def check_input_dirs(Any, CHECK_INPUT_DIRS, mo, os, ui_folder_settings_form):
     return (INPUT_DIRS_EXIST,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     ACTIVITYSIM_OUTPUT_FILES = {
         "persons": {"filename": "final_persons.parquet", "required": True},
@@ -304,7 +304,7 @@ def ui_summary_cards(summary_cards):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def summary_cards(
     Any,
     BASE_OUTPUTS,
@@ -518,13 +518,7 @@ def summary_cards(
             "proj": _compute_summary(PROJ_OUTPUTS),
         }
     )
-    return (
-        count_category,
-        count_rows,
-        count_true,
-        generate_summary_cards,
-        summary_cards,
-    )
+    return (summary_cards,)
 
 
 @app.cell
@@ -556,7 +550,7 @@ def ui_models_helper(INPUT_DIRS_EXIST, mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def column_filter_table(Any, BASE_OUTPUTS, Dict, List, Union, gpd, pl):
     # Constants with underscore prefix to indicate internal usage
     _EXCLUDE_TABLES = {"skims", "land_use"}
@@ -723,7 +717,7 @@ def filter_columns(multiselect):
     return (FILTER_COLUMNS,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def assemble_model_diagnostics(
     BASE_OUTPUTS,
     FILTER_COLUMNS,
@@ -797,7 +791,7 @@ def assemble_model_diagnostics(
             return result_field in table_cols
 
         return all(item in table_cols for item in result_field)
-    return assemble_model_diagnostics, check_exists, generate_model_diagnostic
+    return assemble_model_diagnostics, check_exists
 
 
 @app.cell
@@ -868,9 +862,9 @@ def _(main_accordion, mo):
 def generate_general_model_diagnostic(
     List,
     Optional,
+    alt,
     compute_aggregated_df,
     generate_gt_table,
-    mo,
     pivot_aggregated_df,
     pl,
     px,
