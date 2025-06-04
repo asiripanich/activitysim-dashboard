@@ -308,8 +308,8 @@ def ui_summary_cards(summary_cards):
 def summary_cards(
     Any,
     BASE_OUTPUTS,
+    CONFIGS,
     Dict,
-    MODELS,
     Optional,
     PROJ_OUTPUTS,
     mo,
@@ -336,7 +336,7 @@ def summary_cards(
         return None
 
 
-    def count_rows(lazy_frame: pl.LazyFrame) -> int:
+    def count_rows(lazy_frame: pl.LazyFrame, weight_col: str = None) -> int:
         """
         Return the total number of rows in a LazyFrame.
 
@@ -346,6 +346,8 @@ def summary_cards(
         Returns:
             int: The total number of rows.
         """
+        if weight_col is not None:
+            return lazy_frame.select(pl.col(weight_col).sum()).collect().item()
         return lazy_frame.select(pl.len()).collect().item()
 
 
@@ -394,7 +396,9 @@ def summary_cards(
 
 
     # Summary Computation
-    def _compute_summary(outputs: Dict[str, pl.LazyFrame]) -> Dict[str, float]:
+    def _compute_summary(
+        outputs: Dict[str, pl.LazyFrame], configs: Dict
+    ) -> Dict[str, float]:
         """
         Compute summary metrics from a collection of LazyFrames.
 
@@ -406,10 +410,10 @@ def summary_cards(
         Returns:
             Dict[str, float]: Computed summary metrics.
         """
-        total_persons = count_rows(outputs["persons"])
-        total_households = count_rows(outputs["households"])
-        total_trips = count_rows(outputs["trips"])
-        total_tours = count_rows(outputs["tours"])
+        total_persons = count_rows(outputs["persons"], configs.get("weight"))
+        total_households = count_rows(outputs["households"], configs.get("weight"))
+        total_trips = count_rows(outputs["trips"], configs.get("weight"))
+        total_tours = count_rows(outputs["tours"], configs.get("weight"))
 
         return {
             "total_persons": total_persons,
@@ -514,8 +518,8 @@ def summary_cards(
 
     summary_cards = generate_summary_cards(
         {
-            "base": _compute_summary(BASE_OUTPUTS),
-            "proj": _compute_summary(PROJ_OUTPUTS),
+            "base": _compute_summary(BASE_OUTPUTS, CONFIGS["base"]),
+            "proj": _compute_summary(PROJ_OUTPUTS, CONFIGS["project"]),
         }
     )
     return (summary_cards,)
@@ -901,13 +905,17 @@ def generate_general_model_diagnostic(
         agg_cols = set(agg_cols)
 
         # Compute aggregated data for the Base scenario
-        base_agg = compute_aggregated_df(base, agg_cols).with_columns(
-            scenario=pl.lit("Base")
-        )
+        base_agg = compute_aggregated_df(
+            base, agg_cols, CONFIGS.get("base").get("weight")
+        ).with_columns(scenario=pl.lit("Base"))
         # Compute aggregated data for the Project scenario if available
         if proj is not None:
-            proj_agg = compute_aggregated_df(proj, agg_cols).with_columns(
-                scenario=pl.lit("Project")
+            proj_agg = (
+                compute_aggregated_df(
+                    proj, agg_cols, CONFIGS.get("project").get("weight")
+                )
+                .with_columns(scenario=pl.lit("Project"))
+                .cast({variable: base_agg[variable].dtype})
             )
             agg_df = pl.concat([base_agg, proj_agg], how="vertical")
         else:
@@ -1015,31 +1023,20 @@ def generate_general_model_diagnostic(
             return chart
 
         outs = {
-            # "Share": _obs_plot("share"),
-            # "Count": _obs_plot("count"),
-            # "Share": _generate_figure("share"),
-            # "Count": _generate_figure("count"),
             "Share": _alt_plot("share"),
             "Count": _alt_plot("count"),
             "Table": generate_gt_table(agg_df_pivoted, variable, model_name),
-            # "Table": mo.hstack(
-            #     [generate_gt_table(agg_df_pivoted, variable, model_name)],
-            #     align="start",
-            # ),
         }
-        # Generate visuals: create tabs for Share and Count figures and format the table
-        # tabs = mo.ui.tabs(outs)
 
         return outs
 
-        # Combine visuals and table in a vertical stack layout
-        return mo.vstack([tabs])
     return (generate_general_model_diagnostic,)
 
 
 @app.cell
 def generate_location_model_diagnostic(
     BASE_OUTPUTS,
+    CONFIGS,
     Dict,
     List,
     Optional,
@@ -1146,6 +1143,7 @@ def generate_location_model_diagnostic(
         scenario_name: str,
         origin_zone_variable: str,
         by_columns: Optional[List[str]] = None,
+        weight_col: str = None,
     ) -> pl.LazyFrame:
         """
         Compute an aggregated distance dataframe for a scenario.
@@ -1167,8 +1165,10 @@ def generate_location_model_diagnostic(
         # Determine grouping columns that exist in the base schema
         grouping_columns = by_columns
 
-        return (
-            lazy_df.select(grouping_columns + [variable, origin_zone_variable])
+        query = (
+            lazy_df.select(
+                grouping_columns + [variable, origin_zone_variable, weight_col]
+            )
             .filter(pl.col(variable) > 0)
             .join(
                 scenario_outputs["skims"].select(
@@ -1179,8 +1179,15 @@ def generate_location_model_diagnostic(
             )
             .with_columns(pl.col(skims_variable).floor())
             .group_by(grouping_columns + [skims_variable])
-            .agg(pl.len().alias("count"))
-            .with_columns(scenario=pl.lit(scenario_name))
+        )
+
+        if weight_col is not None:
+            query = query.agg(pl.col(weight_col).sum().round().alias("count"))
+        else:
+            query = query.agg(pl.len().alias("count"))
+
+        return query.with_columns(scenario=pl.lit(scenario_name)).cast(
+            {"count": pl.Int64}
         )
 
 
@@ -1223,6 +1230,7 @@ def generate_location_model_diagnostic(
             "Base",
             origin_zone_variable,
             grouping_columns,
+            CONFIGS.get("base").get("weight"),
         )
         proj_distance = _compute_distance_df(
             proj_lazy_df,
@@ -1232,6 +1240,7 @@ def generate_location_model_diagnostic(
             "Project",
             origin_zone_variable,
             grouping_columns,
+            CONFIGS.get("project").get("weight"),
         )
 
         # Concatenate and collect the data into a DataFrame
@@ -1375,14 +1384,17 @@ def generate_location_model_diagnostic(
 @app.cell(hide_code=True)
 def generate_gt_table(GT, List, cs, loc, md, pl, style, system_fonts):
     def compute_aggregated_df(
-        lazy_df: pl.LazyFrame, group_cols: List[str]
+        lazy_df: pl.LazyFrame, group_cols: List[str], weight_col: str = None
     ) -> pl.DataFrame:
         """Aggregate the LazyFrame by the provided group columns."""
-        return (
-            lazy_df.group_by(group_cols)
-            .agg(count=pl.len().cast(pl.Int64))
-            .collect()
-        )
+        query = lazy_df.group_by(group_cols)
+        if weight_col is not None:
+            query = query.agg(
+                count=pl.col(weight_col).sum().round().cast(pl.Int64)
+            )
+        else:
+            query = query.agg(count=pl.len().cast(pl.Int64))
+        return query.collect()
 
 
     def pivot_aggregated_df(
