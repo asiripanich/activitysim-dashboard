@@ -15,7 +15,7 @@
 import marimo
 
 __generated_with = "0.13.15"
-app = marimo.App(width="medium", app_title="ActivitySim dashboard")
+app = marimo.App(width="full", app_title="ActivitySim dashboard")
 
 
 @app.cell(hide_code=True)
@@ -250,7 +250,7 @@ def _():
     return (ACTIVITYSIM_OUTPUT_FILES,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def read_input_parquets(
     ACTIVITYSIM_OUTPUT_FILES,
     Any,
@@ -274,6 +274,15 @@ def read_input_parquets(
         if attributes["filename"] == "zones.parquet":
             return gpd.read_parquet(filepath)
 
+        if attributes["filename"] in [
+            "final_tours.parquet",
+            "final_trips.parquet",
+            "skims.parquet",
+        ]:
+            return pl.scan_parquet(filepath).cast(
+                {"origin": pl.Int64, "destination": pl.Int64}
+            )
+
         return pl.scan_parquet(filepath)
 
 
@@ -282,10 +291,18 @@ def read_input_parquets(
         for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
         if os.path.exists(os.path.join(base_dir, attrs["filename"]))
     }
+
+    BASE_OUTPUTS['tours'] = BASE_OUTPUTS['tours'].join(BASE_OUTPUTS['persons'], on="person_id")
+    BASE_OUTPUTS['trips'] = BASE_OUTPUTS['trips'].join(BASE_OUTPUTS['persons'], on="person_id")
+
     PROJ_OUTPUTS = {
         name: _read_asim_output(proj_dir, attrs)
         for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
     }
+
+    PROJ_OUTPUTS['tours'] = PROJ_OUTPUTS['tours'].join(PROJ_OUTPUTS['persons'], on="person_id")
+    PROJ_OUTPUTS['trips'] = PROJ_OUTPUTS['trips'].join(PROJ_OUTPUTS['persons'], on="person_id")
+
     return BASE_OUTPUTS, PROJ_OUTPUTS
 
 
@@ -423,21 +440,25 @@ def summary_cards(
             else 0,
             "total_trips": total_trips,
             "total_tours": total_tours,
-            "person_trips": total_trips / total_persons if total_persons else 0,
-            "person_tours": total_tours / total_persons if total_persons else 0,
-            "remote_workers": count_true(
-                outputs["persons"],
-                MODELS["household_person"]["work_from_home"]["result_field"],
-            ),
-            "free_parking_at_work": count_true(
-                outputs["persons"],
-                MODELS["household_person"]["free_parking_at_work"]["result_field"],
-            ),
-            "zero_car_households": count_category(
-                outputs["households"],
-                MODELS["household_person"]["auto_ownership"]["result_field"],
-                0,
-            ),
+            "avg._trips_per_person": total_trips / total_persons
+            if total_persons
+            else 0,
+            "avg._tours_per_person": total_tours / total_persons
+            if total_persons
+            else 0,
+            # "remote_workers": count_true(
+            #     outputs["persons"],
+            #     MODELS["household_person"]["work_from_home"]["result_field"],
+            # ),
+            # "free_parking_at_work": count_true(
+            #     outputs["persons"],
+            #     MODELS["household_person"]["free_parking_at_work"]["result_field"],
+            # ),
+            # "zero_car_households": count_category(
+            #     outputs["households"],
+            #     MODELS["household_person"]["auto_ownership"]["result_field"],
+            #     0,
+            # ),
         }
 
 
@@ -525,7 +546,7 @@ def summary_cards(
     return (summary_cards,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def ui_models(INPUT_DIRS_EXIST, mo):
     mo.hstack(
         [mo.md(rf"""# {mo.icon("lucide:square-chevron-right")} Models""")],
@@ -688,7 +709,7 @@ def column_filter_table(Any, BASE_OUTPUTS, Dict, List, Union, gpd, pl):
     return (MODEL_RESULT_FILTER_OPTIONS,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(MODEL_RESULT_FILTER_OPTIONS, mo):
     multiselect = mo.ui.multiselect(
         options=MODEL_RESULT_FILTER_OPTIONS,
@@ -698,7 +719,7 @@ def _(MODEL_RESULT_FILTER_OPTIONS, mo):
     return (multiselect,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, multiselect):
     mo.hstack(
         [
@@ -711,12 +732,12 @@ def _(mo, multiselect):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def filter_columns(multiselect):
     FILTER_COLUMNS = (
         [x.split(": ")[1] for x in multiselect.value]  # strip the table name
         if multiselect.value is not None
-        else None
+        else []
     )
     return (FILTER_COLUMNS,)
 
@@ -733,7 +754,7 @@ def assemble_model_diagnostics(
     mo,
     pl,
 ):
-    def assemble_model_diagnostics(model_name, fields):
+    def assemble_model_diagnostics(model_name, fields, with_ui=True):
         table_name = fields["table"]
         base_lazy_df = BASE_OUTPUTS[table_name]
         proj_lazy_df = PROJ_OUTPUTS[table_name]
@@ -748,8 +769,8 @@ def assemble_model_diagnostics(
         if not isinstance(result_fields, list):
             result_fields = [result_fields]
 
-        diagnostics = [
-            generate_model_diagnostic(
+        diagnostics = {
+            result_field: generate_model_diagnostic(
                 base_lazy_df,
                 proj_lazy_df,
                 result_field,
@@ -758,10 +779,22 @@ def assemble_model_diagnostics(
                 model_name,
             )
             for result_field in result_fields
-        ]
+        }
 
-        # Return a single diagnostic if only one, or stack them otherwise.
-        return diagnostics[0] if len(diagnostics) == 1 else mo.vstack(diagnostics)
+        if with_ui:
+            diagnostics = {
+                key: mo.ui.tabs(value) for key, value in diagnostics.items()
+            }
+
+        if with_ui and len(result_fields) > 1:
+            diagnostics = mo.ui.tabs(diagnostics)
+
+        # Return a single diagnostic if only one, else as a mo.ui.tabs.
+        return (
+            diagnostics[result_fields[0]]
+            if len(result_fields) == 1
+            else diagnostics
+        )
 
 
     def generate_model_diagnostic(
@@ -798,83 +831,587 @@ def assemble_model_diagnostics(
     return assemble_model_diagnostics, check_exists
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(INPUT_DIRS_EXIST, mo):
     mo.md("""### Households/Persons""") if INPUT_DIRS_EXIST is True else None
     return
 
 
-@app.cell
-def _(MODELS, assemble_model_diagnostics, check_exists, mo):
+@app.cell(hide_code=True)
+def _(MODELS, assemble_model_diagnostics, check_exists):
     main_accordion = {"household_person": {}, "tour": {}, "trip": {}}
 
+    results = {}
     for _tab_name in main_accordion.keys():
         for _model_name, _fields in MODELS.get(_tab_name).items():
+            # print({_model_name})
             if check_exists(_fields):
-                _outs = assemble_model_diagnostics(_model_name, _fields)
-                if isinstance(_outs, dict):
-                    _metrics = _outs["Table"]["metrics"]
-                    _outs["Table"] = _outs["Table"]["gt_table"]
-                    main_accordion[_tab_name][
-                        f"#### {_model_name} (RMSE: {_metrics['rmse']:,.0f}, MAPE: {_metrics['mape']:,.1f}%)"
-                    ] = mo.ui.tabs(_outs)
-                else:
-                    main_accordion[_tab_name][f"#### {_model_name}"] = _outs
-    return (main_accordion,)
+                results[_model_name] = assemble_model_diagnostics(
+                    _model_name, _fields, with_ui=False
+                )
+    return (results,)
 
 
-@app.cell
-def _(main_accordion, mo):
-    mo.accordion(
-        main_accordion["household_person"],
-        lazy=False,
+@app.cell(hide_code=True)
+def auto_ownership(generate_model_ui):
+    generate_model_ui("auto_ownership")
+    return
+
+
+@app.cell(hide_code=True)
+def work_from_home(generate_model_ui):
+    generate_model_ui("work_from_home")
+    return
+
+
+@app.cell(hide_code=True)
+def free_parking_at_work(generate_model_ui):
+    generate_model_ui("free_parking_at_work")
+    return
+
+
+@app.cell(hide_code=True)
+def school_location_results(get_location_results_options_configs):
+    (
+        school_location_results,
+        school_location_options,
+        school_location_configs,
+    ) = get_location_results_options_configs("household_person", "school_location")
+    return (
+        school_location_configs,
+        school_location_options,
+        school_location_results,
+    )
+
+
+@app.cell(hide_code=True)
+def school_location(
+    generate_location_model_ui,
+    school_location_configs,
+    school_location_options,
+    school_location_results,
+):
+    generate_location_model_ui(
+        school_location_results, school_location_configs, school_location_options
     )
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
+def work_location_results(get_location_results_options_configs):
+    (
+        work_location_results,
+        work_location_options,
+        work_location_configs,
+    ) = get_location_results_options_configs("household_person", "work_location")
+    return work_location_configs, work_location_options, work_location_results
+
+
+@app.cell(hide_code=True)
+def work_location(
+    generate_location_model_ui,
+    work_location_configs,
+    work_location_options,
+    work_location_results,
+):
+    generate_location_model_ui(
+        work_location_results, work_location_configs, work_location_options
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def business_location_results(get_location_results_options_configs):
+    (
+        business_location_results,
+        business_location_options,
+        business_location_configs,
+    ) = get_location_results_options_configs(
+        "household_person", "business_location"
+    )
+    return (
+        business_location_configs,
+        business_location_options,
+        business_location_results,
+    )
+
+
+@app.cell(hide_code=True)
+def business_location(
+    business_location_configs,
+    business_location_options,
+    business_location_results,
+    generate_location_model_ui,
+):
+    generate_location_model_ui(
+        business_location_results,
+        business_location_configs,
+        business_location_options,
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def telecommute_frequency(generate_model_ui):
+    generate_model_ui("telecommute_frequency")
+    return
+
+
+@app.cell(hide_code=True)
+def cdap_simulate(generate_model_ui):
+    generate_model_ui("cdap_simulate")
+    return
+
+
+@app.cell(hide_code=True)
 def ui_models_tour_section(INPUT_DIRS_EXIST, mo):
     mo.md("""### Tours""") if INPUT_DIRS_EXIST is True else None
     return
 
 
-@app.cell
-def ui_models_tour_choices(main_accordion, mo):
-    mo.accordion(
-        main_accordion["tour"],
-        lazy=False,
+@app.cell(hide_code=True)
+def mandatory_tour_frequency(generate_model_ui):
+    generate_model_ui("mandatory_tour_frequency")
+    return
+
+
+@app.cell(hide_code=True)
+def mandatory_tour_scheduling(generate_model_ui):
+    generate_model_ui("mandatory_tour_scheduling")
+    return
+
+
+@app.cell(hide_code=True)
+def joint_tour_frequency(generate_model_ui):
+    generate_model_ui("joint_tour_frequency")
+    return
+
+
+@app.cell(hide_code=True)
+def joint_tour_composition(generate_model_ui):
+    generate_model_ui("joint_tour_composition")
+    return
+
+
+@app.cell(hide_code=True)
+def joint_tour_participation(generate_model_ui):
+    generate_model_ui("joint_tour_participation")
+    return
+
+
+@app.cell(hide_code=True)
+def joint_tour_destination(
+    generate_location_model_ui,
+    joint_tour_destination_configs,
+    joint_tour_destination_options,
+    joint_tour_destination_results,
+):
+    generate_location_model_ui(
+        joint_tour_destination_results,
+        joint_tour_destination_configs,
+        joint_tour_destination_options,
     )
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
+def joint_tour_destination_results(get_location_results_options_configs):
+    (
+        joint_tour_destination_results,
+        joint_tour_destination_options,
+        joint_tour_destination_configs,
+    ) = get_location_results_options_configs("tour", "joint_tour_destination")
+    return (
+        joint_tour_destination_configs,
+        joint_tour_destination_options,
+        joint_tour_destination_results,
+    )
+
+
+@app.cell(hide_code=True)
+def joint_tour_scheduling(generate_model_ui):
+    generate_model_ui("joint_tour_scheduling")
+    return
+
+
+@app.cell(hide_code=True)
+def non_mandatory_tour_frequency(generate_model_ui):
+    generate_model_ui("non_mandatory_tour_frequency")
+    return
+
+
+@app.cell(hide_code=True)
+def non_mandatory_tour_destination(
+    generate_location_model_ui,
+    non_mandatory_tour_destination_configs,
+    non_mandatory_tour_destination_options,
+    non_mandatory_tour_destination_results,
+):
+    generate_location_model_ui(
+        non_mandatory_tour_destination_results,
+        non_mandatory_tour_destination_configs,
+        non_mandatory_tour_destination_options,
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def non_mandatory_tour_destination_results(
+    get_location_results_options_configs,
+):
+    (
+        non_mandatory_tour_destination_results,
+        non_mandatory_tour_destination_options,
+        non_mandatory_tour_destination_configs,
+    ) = get_location_results_options_configs(
+        "tour", "non_mandatory_tour_destination"
+    )
+    return (
+        non_mandatory_tour_destination_configs,
+        non_mandatory_tour_destination_options,
+        non_mandatory_tour_destination_results,
+    )
+
+
+@app.cell(hide_code=True)
+def non_mandatory_tour_scheduling(generate_model_ui):
+    generate_model_ui("non_mandatory_tour_scheduling")
+    return
+
+
+@app.cell(hide_code=True)
+def tour_mode_choice_simulate(generate_model_ui):
+    generate_model_ui("tour_mode_choice")
+    return
+
+
+@app.cell(hide_code=True)
+def atwork_subtour_frequency(generate_model_ui):
+    generate_model_ui("atwork_subtour_frequency")
+    return
+
+
+@app.cell(hide_code=True)
+def atwork_subtour_destination(
+    atwork_subtour_destination_configs,
+    atwork_subtour_destination_options,
+    atwork_subtour_destination_results,
+    generate_location_model_ui,
+):
+    generate_location_model_ui(
+        atwork_subtour_destination_results,
+        atwork_subtour_destination_configs,
+        atwork_subtour_destination_options,
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def atwork_subtour_destination_results(get_location_results_options_configs):
+    (
+        atwork_subtour_destination_results,
+        atwork_subtour_destination_options,
+        atwork_subtour_destination_configs,
+    ) = get_location_results_options_configs("tour", "atwork_subtour_destination")
+    return (
+        atwork_subtour_destination_configs,
+        atwork_subtour_destination_options,
+        atwork_subtour_destination_results,
+    )
+
+
+@app.cell(hide_code=True)
+def atwork_subtour_scheduling(generate_model_ui):
+    generate_model_ui("atwork_subtour_scheduling")
+    return
+
+
+@app.cell(hide_code=True)
+def atwork_subtour_mode_choice(generate_model_ui):
+    generate_model_ui("atwork_subtour_mode_choice")
+    return
+
+
+@app.cell(hide_code=True)
+def stop_frequency(generate_model_ui):
+    generate_model_ui("stop_frequency")
+    return
+
+
+@app.cell(hide_code=True)
 def ui_models_trip_section(INPUT_DIRS_EXIST, mo):
     mo.md("""### Trips""") if INPUT_DIRS_EXIST is True else None
     return
 
 
-@app.cell
-def _(main_accordion, mo):
-    mo.accordion(
-        main_accordion["trip"],
-        lazy=False,
+@app.cell(hide_code=True)
+def trip_purpose(generate_model_ui):
+    generate_model_ui("trip_purpose")
+    return
+
+
+@app.cell(hide_code=True)
+def trip_destination_results(get_location_results_options_configs):
+    (
+        trip_destination_results,
+        trip_destination_options,
+        trip_destination_configs,
+    ) = get_location_results_options_configs("trip", "trip_destination")
+    return (
+        trip_destination_configs,
+        trip_destination_options,
+        trip_destination_results,
+    )
+
+
+@app.cell(hide_code=True)
+def trip_destination(
+    generate_location_model_ui,
+    trip_destination_configs,
+    trip_destination_options,
+    trip_destination_results,
+):
+    generate_location_model_ui(
+        trip_destination_results,
+        trip_destination_configs,
+        trip_destination_options,
     )
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
+def trip_scheduling_choice(generate_model_ui):
+    generate_model_ui("trip_scheduling_choice")
+    return
+
+
+@app.cell(hide_code=True)
+def trip_departure_choice(generate_model_ui):
+    generate_model_ui("trip_departure_choice")
+    return
+
+
+@app.cell(hide_code=True)
+def _(
+    CONFIGS,
+    FILTER_COLUMNS,
+    List,
+    MODELS,
+    alt,
+    assemble_model_diagnostics,
+    compute_difference_metrics,
+    generate_gt_table,
+    mo,
+    pl,
+    scenario_discrete_color_map,
+):
+    def recalculate_proportions(
+        df: pl.DataFrame, grouping_columns: List[str], skims_variable: str, options
+    ):
+        if grouping_columns:
+            grouping_columns = [
+                col for col in grouping_columns if col in df.columns
+            ]
+        df_recalculated = (
+            df.filter(
+                pl.col(skims_variable) >= options.value.get("range_slider")[0]
+            )
+            .with_columns(
+                pl.col(skims_variable).cut(
+                    range(
+                        0,
+                        options.value.get("range_slider")[1],
+                        options.get("cut").value,
+                    )
+                )
+            )
+            .group_by([skims_variable] + grouping_columns)
+            .agg(pl.col("count_Base", "count_Project").sum())
+            .with_columns(
+                share_Base=(
+                    pl.col("count_Base") / pl.col("count_Base").sum()
+                ).over(grouping_columns if grouping_columns else None),
+                share_Project=(
+                    pl.col("count_Project") / pl.col("count_Project").sum()
+                ).over(grouping_columns if grouping_columns else None),
+            )
+        )
+        return df_recalculated
+
+
+    def _generate_location_model_chart_ui(
+        start=0,
+        stop=None,
+        default_range=None,
+        cut_start=2,
+        cut_stop=10,
+        cut_default=5,
+    ):
+        assert stop is not None
+        assert default_range is not None
+        return mo.md("X-axis range: {range_slider} cut: {cut}").batch(
+            range_slider=mo.ui.range_slider(
+                start=start,
+                stop=stop,
+                value=default_range,
+                full_width=False,
+                show_value=True,
+            ),
+            cut=mo.ui.slider(
+                start=cut_start, stop=cut_stop, value=cut_default, show_value=True
+            ),
+        )
+
+
+    def generate_location_model_chart_ui(df, skims_variable):
+        return _generate_location_model_chart_ui(
+            stop=round(df[skims_variable].max()),
+            default_range=[0, round(df[skims_variable].median())],
+        )
+
+
+    def plot_distance_comparison(df, grouping_columns, skims_variable):
+        if grouping_columns:
+            grouping_columns = [
+                col for col in grouping_columns if col in df.columns
+            ]
+        facet_col = grouping_columns[0] if grouping_columns else None
+        base = alt.Chart(df).mark_area(
+            line={"color": scenario_discrete_color_map.get("Base")},
+            point=False,
+            color=scenario_discrete_color_map.get("Project"),
+            interpolate="step",
+            opacity=0.8,
+        )
+
+        chart = base.encode(
+            alt.X(skims_variable),
+            alt.Y("share_Base:Q").axis(format=".1%").title("Share"),
+            alt.Y2("share_Project:Q"),
+            # fill=alt.when(alt.datum.share_Base>0.2).then(alt.value("red")).otherwise(alt.value("red")),
+        )
+
+        if facet_col is not None:
+            columns = min(df[facet_col].n_unique(), 3)
+            one_facet_width = 900 / columns
+            chart = chart.properties(width=one_facet_width).facet(
+                facet=f"{facet_col}:N", columns=columns
+            )
+        return chart.configure_axis(
+            labelFontSize=CONFIGS.get("dashboard").get("axis_labelFontSize"),
+            titleFontSize=CONFIGS.get("dashboard").get("axis_titleFontSize"),
+        )
+
+
+    def get_location_results_options_configs(table, model_name):
+        configs = MODELS.get(table).get(model_name)
+        configs["model_name"] = model_name
+        results = assemble_model_diagnostics(model_name, configs, with_ui=False)
+        options = generate_location_model_chart_ui(
+            results.get("data"),
+            configs.get("skims_variable"),
+        )
+        return results, options, configs
+
+
+    def generate_location_model_ui(results, configs, options):
+        df = recalculate_proportions(
+            results.get("data"),
+            FILTER_COLUMNS,
+            configs.get("skims_variable"),
+            options,
+        ).sort([configs.get("skims_variable")])
+
+        plot = plot_distance_comparison(
+            df, FILTER_COLUMNS, configs.get("skims_variable")
+        )
+
+        df_with_diff = df.with_columns(
+            diff=pl.col("count_Project") - pl.col("count_Base"),
+            pct_diff=(pl.col("count_Project") - pl.col("count_Base"))
+            / pl.col("count_Base"),
+        )
+
+        metrics = compute_difference_metrics(df_with_diff)
+
+        gt_table = generate_gt_table(
+            df_with_diff,
+            configs.get("skims_variable"),
+        )
+
+        return mo.accordion(
+            {
+                f"#### {configs.get('model_name')} (TVD: {round(metrics['tdv'], 4)})": mo.ui.tabs(
+                    {
+                        "Share": mo.vstack([plot.interactive(), options]),
+                        "Table": gt_table,
+                    }
+                ),
+            },
+            lazy=True,
+        )
+    return generate_location_model_ui, get_location_results_options_configs
+
+
+@app.cell(hide_code=True)
 def generate_general_model_diagnostic(
+    CONFIGS,
     List,
     Optional,
     alt,
     compute_aggregated_df,
+    compute_difference_metrics,
     generate_gt_table,
     pivot_aggregated_df,
     pl,
-    px,
     scenario_discrete_color_map,
 ):
-    @mo.persistent_cache
+    def plot_comparison(agg_df, variable, col, grouping_columns):
+        facet_col = grouping_columns[0] if grouping_columns else None
+
+        base = alt.Chart(agg_df).encode(
+            alt.X(f"{variable}:N"),
+            alt.Y(col)
+            .axis(format=".1%" if col == "share" else ".2s")
+            .title("Share" if col == "share" else "Count"),
+            alt.Color("scenario:N")
+            .scale(
+                domain=scenario_discrete_color_map.keys(),
+                range=scenario_discrete_color_map.values(),
+            )
+            .title("Scenario")
+            .legend(orient="top"),
+            xOffset="scenario:N",
+            tooltip=col,
+        )
+
+        bar = base.mark_bar()
+
+        text = bar.mark_text(
+            align="center",
+            baseline="middle",
+            dy=-8,
+            fontSize=CONFIGS.get("dashboard").get("mark_text_fontSize"),
+        ).encode(
+            alt.Text(f"{col}").format(".1%" if col == "share" else ".2s"),
+        )
+
+        chart = bar + text
+
+        if facet_col is not None:
+            columns = min(agg_df[facet_col].n_unique(), 3)
+            one_facet_width = 900 / columns
+            chart = chart.properties(width=one_facet_width).facet(
+                facet=f"{facet_col}:N", columns=columns
+            )
+
+        return chart.configure_axis(
+            labelFontSize=CONFIGS.get("dashboard").get("axis_labelFontSize"),
+            titleFontSize=CONFIGS.get("dashboard").get("axis_titleFontSize"),
+        )
+
+
+    # @mo.persistent_cache
     def generate_general_model_diagnostic(
         base: pl.LazyFrame,
         proj: Optional[pl.LazyFrame],
@@ -917,9 +1454,16 @@ def generate_general_model_diagnostic(
                 .with_columns(scenario=pl.lit("Project"))
                 .cast({variable: base_agg[variable].dtype})
             )
-            agg_df = pl.concat([base_agg, proj_agg], how="vertical")
+            agg_df = pl.concat([base_agg, proj_agg], how="vertical_relaxed")
         else:
             agg_df = base_agg
+
+        if agg_df[variable].dtype == pl.String:
+            agg_df = agg_df.with_columns(
+                pl.when(pl.col(variable) == "")
+                .then(None)
+                .otherwise(pl.col(variable))
+            )
 
         # Calculate the share column within each scenario
         agg_df = agg_df.with_columns(
@@ -929,111 +1473,20 @@ def generate_general_model_diagnostic(
         # Pivot the data to compare Base and Project counts side by side
         agg_df_pivoted = pivot_aggregated_df(agg_df, agg_cols)
 
-        def _generate_figure(col: str):
-            """Generate a Plotly bar chart for the specified column ('share' or 'len')."""
-            if col == "share":
-                labels = {"share": "Percentage (%)"}
-                text_auto = ".2%"
-            elif col == "count":
-                labels = {"count": "Count"}
-                text_auto = True
-            else:
-                raise ValueError(f"Invalid column specified: {col}")
-
-            facet_col = grouping_columns[0] if grouping_columns else None
-            facet_order = (
-                sorted(agg_df[facet_col].unique())
-                if facet_col is not None
-                else None
-            )
-
-            fig = px.bar(
-                agg_df,
-                x=variable,
-                y=col,
-                color="scenario",
-                facet_col=grouping_columns[0] if grouping_columns else None,
-                barmode="group",
-                color_discrete_map=scenario_discrete_color_map,
-                labels=labels,
-                hover_data=grouping_columns if grouping_columns else None,
-                text_auto=text_auto,
-                facet_col_wrap=4,
-                height=800,
-                title=f"x-axis: {variable}",
-                category_orders={facet_col: facet_order}
-                if facet_col is not None
-                else None,
-            )
-
-            # Use percentages in y-axis of all facets
-            if col == "share":
-                fig.for_each_yaxis(lambda axis: axis.update(tickformat=".0%"))
-
-            # Remove x-axis titles from all facets
-            fig.for_each_xaxis(lambda axis: axis.update(title_text=""))
-
-            fig.update_layout(
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.1,
-                    xanchor="center",
-                    x=0.5,
-                ),
-                legend_title_text="",
-                legend_font_size=16,
-                font=dict(size=16),
-            )
-
-            return fig
-
-        def _alt_plot(col):
-            facet_col = grouping_columns[0] if grouping_columns else None
-
-            base = alt.Chart(agg_df).encode(
-                alt.X(f"{variable}:N"),
-                alt.Y(col).axis(format=".1%" if col == "share" else ".2s"),
-                alt.Color("scenario:N")
-                .scale(
-                    domain=scenario_discrete_color_map.keys(),
-                    range=scenario_discrete_color_map.values(),
-                )
-                .title("Scenario")
-                .legend(orient="top"),
-                xOffset="scenario:N",
-                tooltip=col,
-            )
-
-            bar = base.mark_bar()
-
-            text = bar.mark_text(align="center", baseline="middle", dy=-8).encode(
-                alt.Text(f"{col}").format(".1%" if col == "share" else ".2s")
-            )
-
-            chart = bar + text
-
-            if facet_col is not None:
-                columns = min(agg_df[facet_col].n_unique(), 3)
-                one_facet_width = 900 / columns
-                chart = chart.properties(width=one_facet_width).facet(
-                    facet=f"{facet_col}:N", columns=columns
-                )
-
-            return chart
+        metrics = compute_difference_metrics(agg_df_pivoted)
 
         outs = {
-            "Share": _alt_plot("share"),
-            "Count": _alt_plot("count"),
+            "Share": plot_comparison(agg_df, variable, "share", grouping_columns),
+            "Count": plot_comparison(agg_df, variable, "count", grouping_columns),
             "Table": generate_gt_table(agg_df_pivoted, variable, model_name),
+            "metrics": metrics,
         }
 
         return outs
-
     return (generate_general_model_diagnostic,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def generate_location_model_diagnostic(
     BASE_OUTPUTS,
     CONFIGS,
@@ -1049,10 +1502,6 @@ def generate_location_model_diagnostic(
     px,
     scenario_discrete_color_map,
 ):
-    # Assume these globals are defined elsewhere in your project
-    # BASE_OUTPUTS, PROJ_OUTPUTS, scenario_discrete_color_map, mo
-
-
     def _generate_scatter(
         lazy_df: pl.LazyFrame,
         scenario_outputs: Dict[str, pl.LazyFrame],
@@ -1124,6 +1573,7 @@ def generate_location_model_diagnostic(
             marginal_y="histogram",
             hover_data=[variable, "count", land_use_control_variable],
             height=800,
+            opacity=0.3,
             title=f"{scenario_name}",
             labels={
                 "actual_diff": "Actual difference",
@@ -1244,7 +1694,9 @@ def generate_location_model_diagnostic(
         )
 
         # Concatenate and collect the data into a DataFrame
-        distance_df = pl.concat([base_distance, proj_distance]).collect()
+        distance_df = pl.concat(
+            [base_distance, proj_distance], how="vertical_relaxed"
+        ).collect()
 
         facet_col = grouping_columns[0] if grouping_columns else None
         facet_order = (
@@ -1361,28 +1813,16 @@ def generate_location_model_diagnostic(
             pivoted_distance_df, skims_variable, model_name
         )
 
-        # Combine the tabs into a single UI diagnostic object
-        if land_use_control_variable is None:
-            diagnostic_ui = mo.ui.tabs(
-                {
-                    "Distance plot": distance_plot,
-                    "Distance table": distance_table,
-                }
-            )
-        else:
-            diagnostic_ui = mo.ui.tabs(
-                {
-                    "Differences to land use": differences_tab,
-                    "Distance plot": distance_plot,
-                    "Distance table": distance_table,
-                }
-            )
-        return diagnostic_ui
+        outputs = {
+            "data": pivoted_distance_df,
+            "distance_df": distance_df,
+        }
+        return outputs
     return (generate_location_model_diagnostic,)
 
 
 @app.cell(hide_code=True)
-def generate_gt_table(GT, List, cs, loc, md, pl, style, system_fonts):
+def generate_gt_table(GT, List, cs, loc, md, mo, pl, style, system_fonts):
     def compute_aggregated_df(
         lazy_df: pl.LazyFrame, group_cols: List[str], weight_col: str = None
     ) -> pl.DataFrame:
@@ -1419,10 +1859,8 @@ def generate_gt_table(GT, List, cs, loc, md, pl, style, system_fonts):
         )
 
 
-    def generate_gt_table(df: pl.DataFrame, variable: str, table_title: str = ""):
-        """Generate a formatted table with RMSE and MAPE metrics."""
-        # Compute metrics: RMSE and MAPE
-        metrics = df.select(
+    def compute_difference_metrics(diff_df):
+        metrics = diff_df.select(
             rmse=((pl.col("count_Project") - pl.col("count_Base")) ** 2)
             .mean()
             .sqrt()
@@ -1434,97 +1872,155 @@ def generate_gt_table(GT, List, cs, loc, md, pl, style, system_fonts):
                 ).mean()
                 * 100
             ).round(1),
+            L1_distance=(pl.col("share_Project") - pl.col("share_Base"))
+            .abs()
+            .sum(),
         )
-        rmse = metrics["rmse"].item()
-        mape = metrics["mape"].item()
+        return {
+            "rmse": metrics["rmse"].item(),
+            "mape": metrics["mape"].item(),
+            "tdv": metrics["L1_distance"].item() / 2,
+        }
+
+
+    def generate_gt_table(df: pl.DataFrame, variable: str, table_title: str = ""):
+        """Generate a formatted table with RMSE and MAPE metrics."""
+        # Compute metrics: RMSE and MAPE
+        metrics = compute_difference_metrics(df)
+
+        gt_table = (
+            GT(df.sort(variable))
+            .tab_header(title=f"Model: {table_title}")
+            .tab_spanner(
+                label=md("**Share (%)**"), columns=cs.starts_with("share_")
+            )
+            .tab_spanner(
+                label=md("**Count**"),
+                columns=[cs.starts_with("count_"), "diff"],
+            )
+            .tab_style(
+                style=[
+                    style.fill(color="#edf0ee"),
+                ],
+                locations=loc.column_header(),
+            )
+            # Conditional formatting ----------
+            # between -0 to -10%
+            .tab_style(
+                style=style.text(color="#ff917a"),
+                locations=loc.body(
+                    columns="pct_diff",
+                    rows=((pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)),
+                ),
+            )
+            # less than - 10%
+            .tab_style(
+                style=style.text(color="#ff5938"),
+                locations=loc.body(
+                    columns="pct_diff", rows=pl.col("pct_diff") < -0.1
+                ),
+            )
+            # between 0 to 10%
+            .tab_style(
+                style=style.text(color="#7aa7ff"),
+                locations=loc.body(
+                    columns="pct_diff",
+                    rows=((pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)),
+                ),
+            )
+            # more than 10%
+            .tab_style(
+                style=style.text(color="#216bff"),
+                locations=loc.body(
+                    columns="pct_diff", rows=pl.col("pct_diff") > 0.1
+                ),
+            )
+            .cols_move(columns="pct_diff", after="diff")
+            .cols_move_to_start(columns=variable)
+            .cols_label(
+                share_Base=md("**Base**"),
+                share_Project=md("**Project**"),
+                count_Base=md("**Base**"),
+                count_Project=md("**Project**"),
+                diff=md("**Difference***"),
+                pct_diff=md("% **Difference**"),
+            )
+            .fmt_percent(columns=[cs.starts_with("share_"), "pct_diff"])
+            .fmt_integer(columns=[cs.starts_with("count_"), "diff"])
+            .data_color(
+                columns=["share_Project", "share_Base"],
+                palette="YlGn",
+                na_color="lightgray",
+            )
+            .tab_style(
+                style=style.text(weight="bolder"),
+                locations=loc.column_header(),
+            )
+            .tab_source_note(
+                source_note=md(
+                    f"**Summary Statistics** - RMSE: {metrics['rmse']}, MAPE: {metrics['mape']}%, \\\n Total Variation Distance (TDV): {round(metrics['tdv'], 4)} \\\n *Difference = Project - Base"
+                )
+            )
+            .tab_options(table_font_names=system_fonts("industrial"))
+        )
 
         # Build the formatted table using GT
-        return {
-            "gt_table": (
-                GT(df)
-                .tab_header(title=f"Model: {table_title}")
-                .tab_spanner(
-                    label=md("**Share (%)**"), columns=cs.starts_with("share_")
-                )
-                .tab_spanner(
-                    label=md("**Count**"),
-                    columns=[cs.starts_with("count_"), "diff"],
-                )
-                .tab_style(
-                    style=[
-                        style.fill(color="#edf0ee"),
-                    ],
-                    locations=loc.column_header(),
-                )
-                # Conditional formatting ----------
-                # between -0 to -10%
-                .tab_style(
-                    style=style.text(color="#ff917a"),
-                    locations=loc.body(
-                        columns="pct_diff",
-                        rows=(
-                            (pl.col("pct_diff") < 0) & (pl.col("pct_diff") >= -0.1)
-                        ),
-                    ),
-                )
-                # less than - 10%
-                .tab_style(
-                    style=style.text(color="#ff5938"),
-                    locations=loc.body(
-                        columns="pct_diff", rows=pl.col("pct_diff") < -0.1
-                    ),
-                )
-                # between 0 to 10%
-                .tab_style(
-                    style=style.text(color="#7aa7ff"),
-                    locations=loc.body(
-                        columns="pct_diff",
-                        rows=(
-                            (pl.col("pct_diff") > 0) & (pl.col("pct_diff") <= 0.1)
-                        ),
-                    ),
-                )
-                # more than 10%
-                .tab_style(
-                    style=style.text(color="#216bff"),
-                    locations=loc.body(
-                        columns="pct_diff", rows=pl.col("pct_diff") > 0.1
-                    ),
-                )
-                .cols_move(columns="pct_diff", after="diff")
-                .cols_move_to_start(columns=variable)
-                .cols_label(
-                    share_Base=md("**Base**"),
-                    share_Project=md("**Project**"),
-                    count_Base=md("**Base**"),
-                    count_Project=md("**Project**"),
-                    diff=md("**Difference***"),
-                    pct_diff=md("% **Difference**"),
-                )
-                .fmt_percent(columns=[cs.starts_with("share_"), "pct_diff"])
-                .fmt_integer(columns=[cs.starts_with("count_"), "diff"])
-                .data_color(
-                    columns=["share_Project", "share_Base"],
-                    palette="YlGn",
-                    na_color="lightgray",
-                )
-                .tab_style(
-                    style=style.text(weight="bolder"),
-                    locations=loc.column_header(),
-                )
-                .tab_source_note(
-                    source_note=md(
-                        f"**Summary Statistics** - RMSE: {rmse}, MAPE: {mape}% \\\n *Difference = Project - Base"
-                    )
-                )
-                .tab_options(table_font_names=system_fonts("industrial"))
-            ),
-            "metrics": {
-                "rmse": rmse,
-                "mape": mape,
-            },
-        }
-    return compute_aggregated_df, generate_gt_table, pivot_aggregated_df
+        return mo.vstack(
+            [
+                mo.accordion({"Download data": df}),
+                gt_table,
+            ]
+        )
+    return (
+        compute_aggregated_df,
+        compute_difference_metrics,
+        generate_gt_table,
+        pivot_aggregated_df,
+    )
+
+
+@app.cell(hide_code=True)
+def _(mo, results):
+    def generate_model_ui(model_name):
+        """Generate UI components for a model with TDV metrics display."""
+
+        model_data = results.get(model_name, {})
+        if not model_data:
+            return mo.accordion(
+                {f"#### {model_name} (No data available)": mo.ui.tabs({})}
+            )
+
+        # Determine if metrics are at top level or nested
+        has_top_level_metrics = "metrics" in model_data
+
+        if has_top_level_metrics:
+            # Simple case: metrics at top level
+            tdv_value = round(model_data["metrics"].get("tdv", 0), 4)
+            results_for_tabs = {
+                key: value for key, value in model_data.items() if key != "metrics"
+            }
+        else:
+            # Complex case: metrics nested within each result
+            tdv_dict = {
+                key: round(value["metrics"]["tdv"], 4)
+                for key, value in model_data.items()
+                if isinstance(value, dict) and "metrics" in value
+            }
+            tdv_value = tdv_dict
+
+            results_for_tabs = {}
+            for key, result_dict in model_data.items():
+                if isinstance(result_dict, dict):
+                    filtered_dict = {
+                        k: v for k, v in result_dict.items() if k != "metrics"
+                    }
+                    results_for_tabs[key] = mo.ui.tabs(filtered_dict)
+
+        tabs = mo.ui.tabs(results_for_tabs)
+        title = f"#### {model_name} (TDV: {tdv_value})"
+
+        return mo.accordion({title: tabs})
+    return (generate_model_ui,)
 
 
 if __name__ == "__main__":
