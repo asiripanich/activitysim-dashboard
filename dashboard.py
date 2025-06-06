@@ -1353,7 +1353,7 @@ def _(
 
         return mo.accordion(
             {
-                f"#### {configs.get('model_name')} (TVD: {round(metrics['tdv'], 4)} | MAPE: {metrics.get('mape')}% | RMSE: {metrics.get('rmse')}:,)": mo.ui.tabs(
+                f"#### {configs.get('model_name')}\n (TVD: {round(metrics['tdv'], 4)} | MAPE: {metrics.get('mape')}% | RMSE: {metrics.get('rmse'):,})": mo.ui.tabs(
                     {
                         "Share": mo.vstack([plot.interactive(), options]),
                         "Table": gt_table,
@@ -2006,8 +2006,8 @@ def _(mo, results):
         if has_top_level_metrics:
             # Simple case: metrics at top level
             tdv_value = round(model_data["metrics"].get("tdv", 0), 4)
-            mape_value = f"{round(model_data["metrics"].get("mape", 0), 4)}%"
-            rmse_value = f"{round(model_data["metrics"].get("rmse", 0), 4):,}"
+            mape_value = f"{round(model_data['metrics'].get('mape', 0), 4)}%"
+            rmse_value = f"{round(model_data['metrics'].get('rmse', 0), 4):,}"
             results_for_tabs = {
                 key: value for key, value in model_data.items() if key != "metrics"
             }
@@ -2019,7 +2019,7 @@ def _(mo, results):
                 if isinstance(value, dict) and "metrics" in value
             }
             mape_dict = {
-                key: f"{round(value["metrics"]["mape"], 4)}%"
+                key: f"{round(value['metrics']['mape'], 4)}%"
                 for key, value in model_data.items()
                 if isinstance(value, dict) and "metrics" in value
             }
@@ -2041,7 +2041,7 @@ def _(mo, results):
                     results_for_tabs[key] = mo.ui.tabs(filtered_dict)
 
         tabs = mo.ui.tabs(results_for_tabs)
-        title = f"#### {model_name} (TDV: {tdv_value} | MAPE: {mape_value} | RMSE: {rmse_value})"
+        title = f"#### {model_name} \n (TDV: {tdv_value} | MAPE: {mape_value} | RMSE: {rmse_value})"
 
         return mo.accordion({title: tabs})
     return (generate_model_ui,)
