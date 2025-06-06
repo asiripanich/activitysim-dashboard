@@ -1312,6 +1312,8 @@ def _(
 
     def get_location_results_options_configs(table, model_name):
         configs = MODELS.get(table).get(model_name)
+        if configs is None:
+            return None, None, None
         configs["model_name"] = model_name
         results = assemble_model_diagnostics(model_name, configs, with_ui=False)
         options = generate_location_model_chart_ui(
@@ -1322,6 +1324,9 @@ def _(
 
 
     def generate_location_model_ui(results, configs, options):
+        if results is None:
+            return None
+    
         df = recalculate_proportions(
             results.get("data"),
             FILTER_COLUMNS,
@@ -1993,9 +1998,7 @@ def _(mo, results):
 
         model_data = results.get(model_name, {})
         if not model_data:
-            return mo.accordion(
-                {f"#### {model_name} (No data available)": mo.ui.tabs({})}
-            )
+            return None
 
         # Determine if metrics are at top level or nested
         has_top_level_metrics = "metrics" in model_data
