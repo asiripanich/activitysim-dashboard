@@ -292,17 +292,24 @@ def read_input_parquets(
         if os.path.exists(os.path.join(base_dir, attrs["filename"]))
     }
 
-    BASE_OUTPUTS['tours'] = BASE_OUTPUTS['tours'].join(BASE_OUTPUTS['persons'], on="person_id")
-    BASE_OUTPUTS['trips'] = BASE_OUTPUTS['trips'].join(BASE_OUTPUTS['persons'], on="person_id")
+    BASE_OUTPUTS["tours"] = BASE_OUTPUTS["tours"].join(
+        BASE_OUTPUTS["persons"], on="person_id"
+    )
+    BASE_OUTPUTS["trips"] = BASE_OUTPUTS["trips"].join(
+        BASE_OUTPUTS["persons"], on="person_id"
+    )
 
     PROJ_OUTPUTS = {
         name: _read_asim_output(proj_dir, attrs)
         for name, attrs in ACTIVITYSIM_OUTPUT_FILES.items()
     }
 
-    PROJ_OUTPUTS['tours'] = PROJ_OUTPUTS['tours'].join(PROJ_OUTPUTS['persons'], on="person_id")
-    PROJ_OUTPUTS['trips'] = PROJ_OUTPUTS['trips'].join(PROJ_OUTPUTS['persons'], on="person_id")
-
+    PROJ_OUTPUTS["tours"] = PROJ_OUTPUTS["tours"].join(
+        PROJ_OUTPUTS["persons"], on="person_id"
+    )
+    PROJ_OUTPUTS["trips"] = PROJ_OUTPUTS["trips"].join(
+        PROJ_OUTPUTS["persons"], on="person_id"
+    )
     return BASE_OUTPUTS, PROJ_OUTPUTS
 
 
