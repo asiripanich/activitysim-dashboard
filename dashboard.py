@@ -839,24 +839,25 @@ def assemble_model_diagnostics(
 
 
 @app.cell(hide_code=True)
-def _(INPUT_DIRS_EXIST, mo):
-    mo.md("""### Households/Persons""") if INPUT_DIRS_EXIST is True else None
-    return
-
-
-@app.cell(hide_code=True)
-def _(MODELS, assemble_model_diagnostics, check_exists):
+def _(MODELS, assemble_model_diagnostics, check_exists, mo):
     main_accordion = {"household_person": {}, "tour": {}, "trip": {}}
 
     results = {}
     for _tab_name in main_accordion.keys():
-        for _model_name, _fields in MODELS.get(_tab_name).items():
-            # print({_model_name})
-            if check_exists(_fields):
-                results[_model_name] = assemble_model_diagnostics(
-                    _model_name, _fields, with_ui=False
-                )
+        with mo.status.progress_bar(total=len(MODELS.get(_tab_name)), remove_on_exit=True) as bar:
+            for _model_name, _fields in MODELS.get(_tab_name).items():
+                if check_exists(_fields):
+                    results[_model_name] = assemble_model_diagnostics(
+                        _model_name, _fields, with_ui=False
+                    )
+                bar.update(title=_tab_name, subtitle=_model_name)
     return (results,)
+
+
+@app.cell(hide_code=True)
+def _(INPUT_DIRS_EXIST, mo):
+    mo.md("""### Households/Persons""") if INPUT_DIRS_EXIST is True else None
+    return
 
 
 @app.cell(hide_code=True)
@@ -1326,7 +1327,7 @@ def _(
     def generate_location_model_ui(results, configs, options):
         if results is None:
             return None
-    
+
         df = recalculate_proportions(
             results.get("data"),
             FILTER_COLUMNS,
