@@ -1,45 +1,61 @@
-[formatting]
-line_length = 79
+[ai]
+rules = ""
 
-[runtime]
-auto_reload = "off"
-watcher_on_save = "lazy"
-output_max_bytes = 20000000
-std_stream_max_bytes = 1000000
-auto_instantiate = true
-on_cell_change = "autorun"
+[snippets]
+custom_paths = []
+include_default_snippets = true
+
+[keymap]
+preset = "default"
+
+[keymap.overrides]
 
 [experimental]
 
-[package_management]
-manager = "uv"
+[formatting]
+line_length = 79
+
+[language_servers.pylsp]
+enable_pydocstyle = false
+enable_ruff = true
+enabled = true
+enable_mypy = true
+enable_pylint = false
+enable_flake8 = false
+enable_pyflakes = false
+
+[diagnostics]
+
+[runtime]
+default_sql_output = "auto"
+watcher_on_save = "lazy"
+std_stream_max_bytes = 1000000
+output_max_bytes = 20000000
+on_cell_change = "autorun"
+auto_reload = "off"
+reactive_tests = true
+auto_instantiate = true
+
+[save]
+format_on_save = true
+autosave = "after_delay"
+autosave_delay = 1000
+
+[display]
+cell_output = "above"
+theme = "light"
+default_width = "medium"
+default_table_page_size = 10
+dataframes = "rich"
+code_editor_font_size = 14
 
 [completion]
 activate_on_typing = true
 copilot = false
 
-[snippets]
-include_default_snippets = true
-custom_paths = []
-
-[save]
-autosave = "after_delay"
-autosave_delay = 1000
-format_on_save = true
-
-[display]
-code_editor_font_size = 14
-cell_output = "above"
-theme = "light"
-dataframes = "rich"
-default_width = "medium"
-
 [server]
-browser = "default"
 follow_symlink = false
+browser = "default"
 
-[ai]
-rules = ""
-
-[keymap]
-preset = "default"
+[package_management]
+manager = "uv"

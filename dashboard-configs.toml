@@ -1,11 +1,16 @@
 [dashboard]
 title = "Example ActivitySim dashboard"
+mark_text_fontSize = 14
+axis_labelFontSize = 14
+axis_titleFontSize = 14
 
 [base]
 directory = "example_data/mtc/base"
+# weight = 'weight' # for aggregation using record weights 
 
 [project]
 directory = "example_data/mtc/project"
+# weight = 'weight' # for aggregation using record weights 
 
 [models.household_person.auto_ownership]
 table = "households"
@@ -61,6 +66,10 @@ table = "tours"
 result_field = [ "start", "end", "duration" ]
 filter_expr = "SELECT * FROM self WHERE tour_category == 'mandatory'"
 
+[models.tour.joint_tour_frequency]
+table = "households"
+result_field = "joint_tour_frequency"
+
 [models.tour.joint_tour_composition]
 table = "tours"
 result_field = "composition"
@@ -69,6 +78,13 @@ filter_expr = "SELECT * FROM self WHERE composition != ''"
 [models.tour.joint_tour_participation]
 table = "tours"
 result_field = "number_of_participants"
+
+[models.tour.joint_tour_destination]
+table = "tours"
+result_field = "destination"
+skims_variable = "DIST"
+filter_expr = "SELECT * FROM self WHERE tour_category == 'joint'"
+origin_zone_variable = "origin"
 
 [models.tour.joint_tour_scheduling]
 table = "tours"
@@ -80,15 +96,29 @@ table = "persons"
 result_field = "non_mandatory_tour_frequency"
 filter_expr = "SELECT * FROM self WHERE non_mandatory_tour_frequency != 0"
 
+[models.tour.non_mandatory_tour_destination]
+table = "tours"
+result_field = "destination"
+filter_expr = "SELECT * FROM self WHERE tour_category == 'non_mandatory'"
+skims_variable = "DIST"
+origin_zone_variable = "origin"
+
 [models.tour.non_mandatory_tour_scheduling]
 table = "tours"
 result_field = [ "start", "end", "duration" ]
 filter_expr = "SELECT * FROM self WHERE tour_category == 'non_mandatory'"
 
 [models.tour.atwork_subtour_frequency]
-table = "persons"
+table = "tours"
 result_field = "atwork_subtour_frequency"
 filter_expr = "SELECT * FROM self WHERE atwork_subtour_frequency != ''"
+
+[models.tour.atwork_subtour_destination]
+table = "tours"
+result_field = "destination"
+filter_expr = "SELECT * FROM self WHERE tour_category == 'atwork'"
+skims_variable = "DIST"
+origin_zone_variable = "origin"
 
 [models.tour.atwork_subtour_scheduling]
 table = "tours"
@@ -100,7 +130,7 @@ table = "tours"
 result_field = "tour_mode"
 filter_expr = "SELECT * FROM self WHERE tour_category == 'atwork'"
 
-[models.tour.tour_mode_choice_simulate]
+[models.tour.tour_mode_choice]
 table = "tours"
 result_field = "tour_mode"
 
@@ -121,6 +151,10 @@ table = "trips"
 result_field = "destination"
 skims_variable = "DIST"
 origin_zone_variable = "origin"
+
+[models.trip.trip_scheduling_choice]
+table = "tours"
+result_field = [ "outbound_duration", "main_leg_duration", "inbound_duration" ]
 
 [models.trip.trip_mode]
 table = "trips"
