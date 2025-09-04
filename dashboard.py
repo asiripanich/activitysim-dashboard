@@ -112,30 +112,6 @@ def input_settings(INPUT_DIRS_EXIST, mo, ui_folder_settings_form):
 
 
 @app.cell(hide_code=True)
-def banner_html_code(mo):
-    mo.md(
-        r"""
-    <head>
-      <meta charset="UTF-8" />
-      <style>
-        .take-challenge-btn {
-          background: linear-gradient(to right, #bac5c5, #26d0ce);
-          border: none;
-          border-radius: 4px;
-          color: #ffffff;
-          padding: 10px 20px;
-          min-width: 530px;
-          max-height: 60px;
-          align-items: center;
-        }
-      </style>
-    </head>
-    """
-    )
-    return
-
-
-@app.cell(hide_code=True)
 def banner(mo, scenario_discrete_color_map):
     ui_banner = mo.hstack(
         [
